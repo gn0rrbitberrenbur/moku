@@ -61,5 +61,8 @@ moku --help, -h
 ```
 
 ## Todo
-### Move generation
-[ ]
+### Minimaxing
+- [ ] Move ordering
+- [ ] Transposition table
+- [ ] Heuristics (Try previous good moves first)
+- [ ] Iterative deepening
