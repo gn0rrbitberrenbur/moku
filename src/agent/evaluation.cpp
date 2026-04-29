@@ -31,44 +31,42 @@ int Evaluator::score_pattern(int count, int open_ends) const {
  * @param is_black A boolean indicating whether to analyze for black pieces or white pieces.
  * @return LineInfo ; struct ; a struct containing the count of pieces and the number of open ends.
  */
-Evaluator::LineInfo Evaluator::analyze_line(const Board &board, int start_pos, int dx, int dy, bool is_black) const {
+Evaluator::LineInfo Evaluator::analyze_line(
+    const Board &board, int start_pos, int dx, int dy, bool is_black) const {
+
     const auto &own = is_black ? board.black : board.white;
     const auto &opp = is_black ? board.white : board.black;
 
-    int start_row = start_pos / SIZE;
-    int start_col = start_pos % SIZE;
+    int row = start_pos / SIZE;
+    int col = start_pos % SIZE;
 
     int count = 0;
     int open_ends = 0;
 
-    int row = start_row, col = start_col;
-
+    // Nur vorwärts zählen
     while (row >= 0 && row < SIZE && col >= 0 && col < SIZE) {
         int pos = row * SIZE + col;
-        if (own[pos]) count++;
-        else break;
+        if (own[pos]) {
+            count++;
+        } else {
+            break;
+        }
         row += dy;
         col += dx;
     }
 
+    // Offenes Ende prüfen
     if (row >= 0 && row < SIZE && col >= 0 && col < SIZE) {
         int pos = row * SIZE + col;
         if (!opp[pos]) open_ends++;
     }
 
-    row = start_row - dy;
-    col = start_col - dx;
+    // Rückwärts-Ende prüfen (nur 1 Feld!)
+    int back_row = (start_pos / SIZE) - dy;
+    int back_col = (start_pos % SIZE) - dx;
 
-    while (row >= 0 && row < SIZE && col >= 0 && col < SIZE) {
-        int pos = row * SIZE + col;
-        if (own[pos]) count++;
-        else break;
-        row -= dy;
-        col -= dx;
-    }
-
-    if (row >= 0 && row < SIZE && col >= 0 && col < SIZE) {
-        int pos = row * SIZE + col;
+    if (back_row >= 0 && back_row < SIZE && back_col >= 0 && back_col < SIZE) {
+        int pos = back_row * SIZE + back_col;
         if (!opp[pos]) open_ends++;
     }
 
@@ -101,27 +99,79 @@ int Evaluator::position_score(int pos) const {
  */
 float Evaluator::evaluate_board(const Board& board) const {
     if (board.check_win()) {
+        // Idealerweise getrennte Funktionen nutzen:
+        // if (board.black_win()) return +100000.0f;
+        // if (board.white_win()) return -100000.0f;
+
         return board.black.count() > board.white.count() ? 100000.0f : -100000.0f;
     }
-    
-    float score = 0;
+
+    float score = 0.0f;
+
+    //only 4 directions needed
+    static const std::vector<std::pair<int,int>> dirs = {
+        {1, 0},   // horizontal
+        {0, 1},   // vertical
+        {1, 1},   // diagonal \
+        {1, -1}   // diagonal /
+    };
 
     for (int pos = 0; pos < SIZE * SIZE; pos++) {
+        int row = pos / SIZE;
+        int col = pos % SIZE;
+
+        // black
         if (board.black[pos]) {
             score += position_score(pos);
-            for (auto [dx, dy] : directions) {
+
+            for (auto [dx, dy] : dirs) {
+                int prev_row = row - dy;
+                int prev_col = col - dx;
+
+                // check for starting point
+                if (prev_row >= 0 && prev_row < SIZE &&
+                    prev_col >= 0 && prev_col < SIZE) {
+
+                    int prev_pos = prev_row * SIZE + prev_col;
+
+                    if (board.black[prev_pos]) continue;
+                }
+
                 auto info = analyze_line(board, pos, dx, dy, true);
-                score += score_pattern(info.count, info.open_ends);
+
+                // Oignore small lines
+                if (info.count >= 2) {
+                    score += 2.0f * score_pattern(info.count, info.open_ends);
+                }
             }
         }
+
+        // white
         if (board.white[pos]) {
             score -= position_score(pos);
-            for (auto [dx, dy] : directions) {
+
+            for (auto [dx, dy] : dirs) {
+                int prev_row = row - dy;
+                int prev_col = col - dx;
+
+                // check for starting point
+                if (prev_row >= 0 && prev_row < SIZE &&
+                    prev_col >= 0 && prev_col < SIZE) {
+
+                    int prev_pos = prev_row * SIZE + prev_col;
+
+                    if (board.white[prev_pos]) continue;
+                }
+
                 auto info = analyze_line(board, pos, dx, dy, false);
-                score -= score_pattern(info.count, info.open_ends);
+
+                if (info.count >= 2) {
+                    score -= 2.0f * score_pattern(info.count, info.open_ends);
+                }
             }
         }
     }
+
     return score;
 }
 
