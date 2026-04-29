@@ -43,6 +43,11 @@ add_executable(moku
     src/agent/minimax.cpp
 )
 
+target_include_directories(moku PRIVATE 
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include/agents
+)
+
 find_package(Threads REQUIRED)
 target_link_libraries(moku PRIVATE Threads::Threads)
 

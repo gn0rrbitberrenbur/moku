@@ -4,13 +4,22 @@ moku is a simple engine for the game of gomoku, supporting hottable pvp on one  
 ## Run
 to build, clone the repository and `cd`into it.
 
+Make sure you have installed `cmake` on your system.
+
 Then run:
 ```
+mkdir build
 cmake -B build
 cmake --build build
 ```
 
 Once the build is finished, run:
+
+```
+cd build
+```
+
+and then
 
 ```
 .\moku.exe [options]
