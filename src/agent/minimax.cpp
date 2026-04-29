@@ -39,6 +39,11 @@ float MinimaxAgent::minimax(Board &board, int depth, float alpha, float beta, bo
         return 0.0f;
     }
 
+    // new: simple move ordering based on position score
+    std::sort(moves.begin(), moves.end(), [&](int a, int b) {
+        return evaluator.position_score(a) > evaluator.position_score(b);
+    });
+
     if (is_maximizing) {
         float max_eval = -std::numeric_limits<float>::infinity();
 
@@ -94,6 +99,11 @@ int MinimaxAgent::get_best_move(Board &board, bool is_black)
         return -1;
     }
 
+    // move ordering based on position score in root too
+    std::sort(moves.begin(), moves.end(), [&](int a, int b) {
+        return evaluator.position_score(a) > evaluator.position_score(b);
+    });
+
     int best_move = moves[0];
     float best_score = is_black ? -std::numeric_limits<float>::infinity() 
                                 : std::numeric_limits<float>::infinity();
@@ -119,7 +129,6 @@ int MinimaxAgent::get_best_move(Board &board, bool is_black)
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end - begin;
-
 
     std::cout << "Depth: " << max_depth 
               << " | Nodes searched: " << nodes_searched 
