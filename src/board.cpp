@@ -1,7 +1,7 @@
 #include "../include/board.hpp"
 
 /**
- * This file implements the Board class defined in board.hpp, which represents the game state of Gomoku.
+ * This file implements the Board class defined in ../include/board.hpp, which represents the game state of Gomoku.
  * The Board class uses two bitsets to track the positions of black and white pieces on a 15x15 board.
  */
 

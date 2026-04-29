@@ -1,5 +1,5 @@
 # moku
-moku is a simple engine for the game of gomoku, supporting hottable pvp on one  terminal, an engine mode and playing against a minimax agent.
+moku is a simple engine for the game of gomoku, supporting hottable pvp in one terminal, an engine mode and playing against a minimax agent.
 
 ## Run
 to build, clone the repository and `cd`into it.
@@ -59,3 +59,7 @@ Display a help screen:
 ```
 moku --help, -h
 ```
+
+## Todo
+### Move generation
+[ ]

@@ -4,6 +4,19 @@
 #include <iostream>
 #include <string>
 
+/**
+ * This file implements the Gameloop class defined in ../include/gameloop.hpp.
+ * The Gameloop class contains the main game loop functions for both player vs player and 
+ * player vs minimax agent modes.
+ */
+
+ /**
+  * This function implements the game loop for player vs player mode. 
+  * It alternates turns between two human players, accepting input for moves and 
+  * updating the board state until one player wins or the game is quit.
+  * @param board A reference to the Board object representing the game state.
+  * @return void
+  */
 void game_loop_pvp(Board& board)
 {
     bool is_black_turn = true;
@@ -50,6 +63,13 @@ void game_loop_pvp(Board& board)
     }
 }
 
+/**
+ * This function implements the game loop for player vs minimax agent mode. 
+ * It alternates turns between a human player and a minimax AI agent, accepting input for
+ * human moves and calculating AI moves until one player wins or the game is quit.
+ * @param board A reference to the Board object representing the game state.
+ * @return void
+ */
 void game_loop_minimax(Board& board)
 {
     bool is_black_turn = true;
