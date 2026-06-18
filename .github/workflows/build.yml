@@ -10,11 +10,6 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            artifact: moku
-          - os: windows-latest
-            artifact: moku.exe
     
     runs-on: ${{ matrix.os }}
     
@@ -35,11 +30,19 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --target moku
       
-      - name: Upload artifact
+      - name: Upload Linux artifact
+        if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.os }}-binary
-          path: build/**/moku*
+          name: moku-linux
+          path: build/moku
+      
+      - name: Upload Windows artifact
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: moku-windows
+          path: build/Release/moku.exe
   
   release:
     needs: build
@@ -61,8 +64,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            ubuntu-latest-binary/moku
-            windows-latest-binary/moku.exe
+            moku-linux/moku
+            moku-windows/moku.exe
             moku-*-source.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
