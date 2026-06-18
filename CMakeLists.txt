@@ -5,6 +5,10 @@ project(Gomoku VERSION 1.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
 # Platform specific flags
 if(WIN32)
     add_definitions(-D_WIN32)
@@ -33,6 +37,11 @@ FetchContent_MakeAvailable(googletest)
 # Enable testing
 enable_testing()
 
+set(MOKU_INCLUDE_DIRS
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include/agents
+)
+
 add_executable(moku 
     main.cpp
     src/board.cpp
@@ -41,12 +50,10 @@ add_executable(moku
     src/engine.cpp
     src/agent/evaluation.cpp
     src/agent/minimax.cpp
+    src/agent/transposition_table.cpp
 )
 
-target_include_directories(moku PRIVATE 
-    ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/include/agents
-)
+target_include_directories(moku PRIVATE ${MOKU_INCLUDE_DIRS})
 
 find_package(Threads REQUIRED)
 target_link_libraries(moku PRIVATE Threads::Threads)
@@ -59,12 +66,18 @@ add_executable(run_tests
     src/utils.cpp
     src/agent/evaluation.cpp
     src/agent/minimax.cpp
+    src/agent/transposition_table.cpp
+    src/engine.cpp
 )
+
+target_include_directories(run_tests PRIVATE ${MOKU_INCLUDE_DIRS})
 target_link_libraries(run_tests PRIVATE gtest gtest_main Threads::Threads)
 
 # Register tests
 include(GoogleTest)
-gtest_discover_tests(run_tests)
+gtest_discover_tests(run_tests
+    DISCOVERY_TIMEOUT 30
+    )
 
 if(WIN32)
     set_target_properties(moku PROPERTIES OUTPUT_NAME "moku")

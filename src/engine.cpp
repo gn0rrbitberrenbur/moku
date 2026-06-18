@@ -3,204 +3,385 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <vector>
+#include "config.hpp"
 
 /**
  * This file implements the Engine class defined in ../include/engine.hpp.
  * The Engine class manages the overall game flow in engine mode and interacts with the Board and AI agents.
+ * The engine processes commands according to the Gomocup Protocol, 
+ * see https://plastovicka.github.io/protocl2en.htm
  */
 
 /**
- * Main loop of the engine, processes commands from standard input and responds accordingly.
- * Supports UGI commands for interoperability with GUI clients, as well as custom commands for testing and debugging.
+ * This function runs the main loop of the engine.
+ * It continuously reads commands from standard input, processes them, and responds 
+ * according to the Gomocup Protocol.
+ * The loop continues until an END command is received or the input stream is closed.
  * @param None
  * @return void
  */
 void Engine::run() {
-    std::cout << "Gomoku Engine v1.0" << std::endl;
-    std::cout << "Type 'help' for commands" << std::endl;
-    
     std::string line;
     while (running && std::getline(std::cin, line)) {
         if (!line.empty()) {
             process_command(line);
+            std::cout.flush();  // important: flush after every response
         }
     }
 }
 
-/**
- * Processes a single command line input, parsing the command and its arguments, and executing the corresponding function.
- * Supports commands for engine identification, readiness check, game management, move input, board display,
- * searching for best move, and setting search depth. Also includes a help command to list available commands.
- * @param line The input command line to be processed.
- * @return void
- */
 void Engine::process_command(const std::string& line) {
     std::istringstream iss(line);
     std::string cmd;
     iss >> cmd;
     
-    if (cmd == "ugi") {
-        // Universal Gomoku Interface - Identification
-        std::cout << "id name GomokuEngine" << std::endl;
-        std::cout << "id author YourName" << std::endl;
-        std::cout << "ugiok" << std::endl;
+    // convert to uppercase
+    std::string cmd_upper = cmd;
+    for (auto& c : cmd_upper) c = toupper(c);
+    
+    if (cmd_upper == "START") {
+        cmd_start(iss);
     }
-    else if (cmd == "isready") {
-        std::cout << "readyok" << std::endl;
+    else if (cmd_upper == "BEGIN") {
+        cmd_begin();
     }
-    else if (cmd == "uginewgame" || cmd == "newgame") {
-        board = Board();
-        std::cout << "info string New game started" << std::endl;
+    else if (cmd_upper == "TURN") {
+        cmd_turn(iss);
     }
-    else if (cmd == "position") {
-        cmd_position(iss);
+    else if (cmd_upper == "BOARD") {
+        cmd_board();
     }
-    else if (cmd == "go") {
-        cmd_go();
+    else if (cmd_upper == "INFO") {
+        cmd_info(iss);
     }
-    else if (cmd == "move" || cmd == "play") {
-        std::string move_str;
-        iss >> move_str;
-        cmd_move(move_str);
-    }
-    else if (cmd == "display" || cmd == "d" || cmd == "print") {
-        cmd_display();
-    }
-    else if (cmd == "depth") {
-        int d;
-        if (iss >> d && d > 0 && d <= 10) {
-            search_depth = d;
-            agent = MinimaxAgent(search_depth);
-            std::cout << "info string Depth set to " << d << std::endl;
-        }
-    }
-    else if (cmd == "undo") {
-        // Needs move history to implement properly, for now just print info
-        std::cout << "info string Undo not implemented" << std::endl;
-    }
-    else if (cmd == "quit" || cmd == "exit") {
+    else if (cmd_upper == "END") {
         running = false;
     }
-    else if (cmd == "help") {
+    else if (cmd_upper == "RESTART") {
+        board = Board();
+        std::cout << "OK" << std::endl;
+    }
+    else if (cmd_upper == "TAKEBACK") {
+        cmd_takeback(iss);
+    }
+    else if (cmd_upper == "RECTSTART") {
+        // rectangular board not supported in current implementation
+        std::cout << "ERROR rectangular board not supported" << std::endl;
+    }
+    // debugging commands, not part of gomocup protocol
+    else if (cmd_upper == "DISPLAY" || cmd_upper == "D") {
+        cmd_display();
+    }
+    else if (cmd_upper == "HELP") {
         cmd_help();
     }
     else {
-        // try to interpret as move
-        cmd_move(cmd);
+        std::cout << "UNKNOWN " << cmd << std::endl;
     }
 }
 
 /**
- * Handles the 'position' command, which sets up the board state based on a series of moves.
- * The command can specify a starting position (startpos) and a sequence of moves to apply
- * to the board. This allows the engine to be set up in any arbitrary state for testing or analysis.
- * @param iss An input string stream containing the arguments of the position command.
+ * This function processes the START command, which initializes the board with a given size.
+ * START [size] - Initialize board with given size
+ * Must respond with OK or ERROR
+ * @param iss An input string stream containing the command arguments
  * @return void
  */
-void Engine::cmd_position(std::istringstream& iss) {
-    std::string token;
-    iss >> token;
-    
-    if (token == "startpos") {
-        board = Board();
-        iss >> token;  // skip "moves" if present
+void Engine::cmd_start(std::istringstream& iss) {
+    int size;
+    if (!(iss >> size)) {
+        size = 15;  // Default
     }
     
-    if (token == "moves") {
-        bool is_black = true;
-        std::string move_str;
-        while (iss >> move_str) {
-            int pos = algebraic_to_index(move_str, Board::SIZE);
-            if (pos >= 0 && pos < Board::SIZE * Board::SIZE) {
-                board.make_move(pos, is_black);
-                is_black = !is_black;
-            }
-        }
+    // check for valid size (5-20)
+    if (size < 5 || size > 20) {
+        std::cout << "ERROR unsupported board size " << size << std::endl;
+        std::cout.flush();  // FLUSH
+        return;
     }
-    std::cout << "info string Position set" << std::endl;
+    
+    // set board size in global config and reinitialize board
+    g_config.board_size = size;
+    board = Board();
+    
+    std::cout << "OK" << std::endl;
+    std::cout.flush();  // FLUSH
 }
 
 /**
- * Handles the 'go' command, which triggers the engine to calculate the best move for the current player 
- * using the Minimax algorithm.
+ * This fucntion processes the BEGIN command, which signals that the engine 
+ * should play the first move (as black).
+ * The engine must respond with the coordinates of its move in the format X,Y.
+ * BEGIN - Brain plays first move (opens the game)
+ * Must respond with X,Y coordinates
  * @param None
  * @return void
  */
-void Engine::cmd_go() {
-    // determine current player based on move counts
-    bool is_black = (board.black.count() == board.white.count());
+void Engine::cmd_begin() {
+    int center = g_config.board_size / 2;
+    int best_move;
     
-    std::cout << "info string Searching depth " << search_depth << std::endl;
-    
-    int best_move = agent.get_best_move(board, is_black);
-    
-    if (best_move >= 0) {
-        char col = 'A' + (best_move % 15);
-        int row = (best_move / 15) + 1;
-        std::cout << "bestmove " << col << row << std::endl;
+    if (board.black.count() == 0 && board.white.count() == 0) {
+        best_move = center * g_config.board_size + center;
     } else {
-        std::cout << "bestmove none" << std::endl;
+        int search_time = (timeout_turn > 0) ? std::max(100, timeout_turn - 500) : 5000;
+        best_move = agent.get_best_move_timed(board, true, search_time);
+        if (best_move < 0) {
+            best_move = center * g_config.board_size + center;
+        }
     }
+    
+    int x = best_move % g_config.board_size;
+    int y = best_move / g_config.board_size;
+    
+    board.make_move(best_move, true);
+    
+    std::cout << x << "," << y << std::endl;
+    std::cout.flush();
 }
 
 /**
- * Handles the 'move' command, which allows the user to input a move in algebraic notation (e.g., H8) 
- * and applies it to the board.
- * The function checks for move validity, updates the board state, and checks for a win condition after the move is made.
- * @param move_str The move in algebraic notation to be played.
+ * This function processes the TURN command, which indicates that the opponent has 
+ * made a move and its now the engines turn to respond.
+ * The command includes the opponent's move coordinates, which the engine must parse 
+ * and update its internal board state with.
+ * TURN X,Y - Opponent made a move, now it's brain's turn
+ * Must respond with X,Y coordinates
+ * @param iss An input string stream containing the command arguments
  * @return void
  */
-void Engine::cmd_move(const std::string& move_str) {
-    int pos = algebraic_to_index(move_str, Board::SIZE);
+void Engine::cmd_turn(std::istringstream& iss) {
+    std::string coords;
+    iss >> coords;
     
-    if (pos < 0 || pos >= Board::SIZE * Board::SIZE) {
-        std::cout << "info string Invalid move: " << move_str << std::endl;
+    int x, y;
+    char comma;
+    std::istringstream coord_stream(coords);
+    if (!(coord_stream >> x >> comma >> y) || comma != ',') {
+        std::cout << "ERROR invalid coordinates" << std::endl;
+        std::cout.flush();
         return;
     }
     
+    int pos = y * g_config.board_size + x;
+    
+    std::cerr << "DEBUG TURN: pos=" << pos << " board_size=" << g_config.board_size << std::endl;
+    
+    if (pos < 0 || pos >= g_config.squares()) {
+        std::cout << "ERROR coordinates out of bounds" << std::endl;
+        std::cout.flush();
+        return;
+    }
+
     if (board.test_pos(pos)) {
-        std::cout << "info string Position occupied: " << move_str << std::endl;
+        std::cout << "ERROR position already occupied" << std::endl;
+        std::cout.flush();
         return;
     }
     
     bool is_black = (board.black.count() == board.white.count());
+    std::cerr << "DEBUG TURN: is_black=" << is_black 
+              << " black_count=" << board.black.count()
+              << " white_count=" << board.white.count() << std::endl;
+    
     board.make_move(pos, is_black);
     
-    std::cout << "info string Move " << move_str << " played" << std::endl;
+    std::cerr << "DEBUG TURN: after move - black=" << board.black.count()
+              << " white=" << board.white.count() << std::endl;
     
-    if (board.check_win()) {
-        std::cout << "info string " << (is_black ? "Black" : "White") << " wins!" << std::endl;
+    
+    bool my_color = !is_black;
+    int search_time = (timeout_turn > 0) ? std::max(100, timeout_turn - 500) : 5000;
+    int best_move = agent.get_best_move_timed(board, my_color, search_time);
+    
+    if (best_move < 0) {
+        std::cout << "ERROR no valid move found" << std::endl;
+        std::cout.flush();
+        return;
     }
+    
+    board.make_move(best_move, my_color);
+    
+    int out_x = best_move % g_config.board_size;
+    int out_y = best_move / g_config.board_size;
+    
+    std::cout << out_x << "," << out_y << std::endl;
+    std::cout.flush();  // FLUSH
 }
 
 /**
- * Handles the 'display' command, which outputs the current state of the board to the console in a human-readable format.
- * It also provides additional information about the number of black and white pieces currently on the board.
+ * This function processes the BOARD command, which provides the complete current board state.
+ * BOARD - Receive complete board state
+ * @param None
+ * @return void
+ */
+void Engine::cmd_board() {
+    board = Board();
+    
+    std::vector<std::pair<int, int>> own_moves;
+    std::vector<std::pair<int, int>> opp_moves;
+    
+    std::string line;
+    while (std::getline(std::cin, line)) {
+        while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) {
+            line.pop_back();
+        }
+        
+        if (line == "DONE") {
+            break;
+        }
+        
+        int x, y, field;
+        char c1, c2;
+        std::istringstream lss(line);
+        if (lss >> x >> c1 >> y >> c2 >> field) {
+            int pos = y * g_config.board_size + x;
+            if (pos >= 0 && pos < g_config.squares()) {
+                if (field == 1) {
+                    own_moves.push_back({pos, 1});
+                } else if (field == 2) {
+                    opp_moves.push_back({pos, 2});
+                }
+            }
+        }
+    }
+    
+    bool we_are_black = (own_moves.size() > opp_moves.size()) || 
+                        (own_moves.size() == opp_moves.size());
+    
+    for (const auto& move : own_moves) {
+        board.make_move(move.first, we_are_black);
+    }
+    for (const auto& move : opp_moves) {
+        board.make_move(move.first, !we_are_black);
+    }
+    
+    bool is_black = (board.black.count() == board.white.count());
+    int search_time = (timeout_turn > 0) ? std::max(100, timeout_turn - 500) : 5000;
+    int best_move = agent.get_best_move_timed(board, is_black, search_time);
+    
+    if (best_move >= 0) {
+        board.make_move(best_move, is_black);
+        int out_x = best_move % g_config.board_size;
+        int out_y = best_move / g_config.board_size;
+        std::cout << out_x << "," << out_y << std::endl;
+    } else {
+        std::cout << "ERROR no valid move" << std::endl;
+    }
+    std::cout.flush();  // FLUSH
+}
+
+/**
+ * This function processes the TAKEBACK command, which allows undoing a move at a specified position.
+ * TAKEBACK X,Y - Undo move at position
+ * Must respond with OK or ERROR
+ * @param iss An input string stream containing the command arguments
+ * @return void
+ */
+void Engine::cmd_takeback(std::istringstream& iss) {
+    std::string coords;
+    iss >> coords;
+    
+    int x, y;
+    char comma;
+    std::istringstream coord_stream(coords);
+    if (!(coord_stream >> x >> comma >> y) || comma != ',') {
+        std::cout << "ERROR invalid coordinates" << std::endl;
+        std::cout.flush();
+        return;
+    }
+    
+    int pos = y * g_config.board_size + x;
+    
+    if (board.black.test(pos)) {
+        board.black.reset(pos);
+        std::cout << "OK" << std::endl;
+    } else if (board.white.test(pos)) {
+        board.white.reset(pos);
+        std::cout << "OK" << std::endl;
+    } else {
+        std::cout << "ERROR no stone at position" << std::endl;
+    }
+    std::cout.flush();  // FLUSH
+}
+
+/**
+ * This function processes the INFO command, which provides various game information 
+ * and parameters to the engine.
+ * The command includes a key and value, which the engine must parse and update its internal state
+ * INFO key value - Receive game information
+ * No response expected
+ * @param iss An input string stream containing the command arguments
+ * @return void
+ */
+void Engine::cmd_info(std::istringstream& iss) {
+    std::string key;
+    iss >> key;
+    
+    if (key == "timeout_turn") {
+        iss >> timeout_turn;
+    }
+    else if (key == "timeout_match") {
+        iss >> timeout_match;
+    }
+    else if (key == "time_left") {
+        iss >> time_left;
+    }
+    else if (key == "max_memory") {
+        iss >> max_memory;
+    }
+    else if (key == "game_type") {
+        iss >> game_type;
+    }
+    else if (key == "rule") {
+        iss >> rule;
+    }
+    else if (key == "folder") {
+        iss >> folder;
+    }
+    else if (key == "depth") {
+        int depth;
+        if (iss >> depth && depth > 0 && depth <= 20) {
+            search_depth = depth;
+            agent.set_max_depth(depth);
+            std::cerr << "[info] Search depth set to " << depth << std::endl;
+        }
+    }
+    // no answer expected for INFO command
+}
+
+/**
+ * This function processes the DISPLAY command, which is a debug command to output the 
+ * current board state and some internal information.
+ * DISPLAY - Debug command to display board and internal info
+ * No response expected
+ * This is not part of the Gomocup Protocol.
  * @param None
  * @return void
  */
 void Engine::cmd_display() {
     board.output_board();
-    std::cout << "info string Black stones: " << board.black.count() << std::endl;
-    std::cout << "info string White stones: " << board.white.count() << std::endl;
+    std::cout << "DEBUG Black stones: " << board.black.count() << std::endl;
+    std::cout << "DEBUG White stones: " << board.white.count() << std::endl;
 }
 
 /**
- * Handles the 'help' command, which lists all available commands and their descriptions to assist 
- * the user in interacting with the engine.
+ * This function processes the DISPLAY command, which is a debug command to output the current 
+ * board state and some internal information.
+ * DISPLAY - Debug command to display board and internal info
+ * No response expected
+ * This is not part of the Gomocup Protocol.
  * @param None
  * @return void
  */
 void Engine::cmd_help() {
-    std::cout << "Commands:" << std::endl;
-    std::cout << "  ugi          - Engine identification" << std::endl;
-    std::cout << "  isready      - Check if ready" << std::endl;
-    std::cout << "  newgame      - Start new game" << std::endl;
-    std::cout << "  position startpos [moves ...]" << std::endl;
-    std::cout << "  go           - Calculate best move" << std::endl;
-    std::cout << "  move <pos>   - Play move (e.g., H8)" << std::endl;
-    std::cout << "  <pos>        - Play move directly" << std::endl;
-    std::cout << "  display      - Show board" << std::endl;
-    std::cout << "  depth <n>    - Set search depth (1-10)" << std::endl;
-    std::cout << "  quit         - Exit engine" << std::endl;
+    std::cout << "MESSAGE Gomocup Protocol Commands:" << std::endl;
+    std::cout << "MESSAGE   START [size] - Initialize board" << std::endl;
+    std::cout << "MESSAGE   BEGIN - Play first move" << std::endl;
+    std::cout << "MESSAGE   TURN X,Y - Opponent move, respond with own" << std::endl;
+    std::cout << "MESSAGE   BOARD ... DONE - Set board state" << std::endl;
+    std::cout << "MESSAGE   INFO key value - Set parameters" << std::endl;
+    std::cout << "MESSAGE   ABOUT - Brain information" << std::endl;
+    std::cout << "MESSAGE   END - Terminate" << std::endl;
 }

@@ -12,31 +12,25 @@
  */
 void Board::output_board() const
 {
+    int s = size();
+    
+    // Header
     std::cout << "   ";
-    for (int i = 0; i < SIZE; i++) {
-        char c = 'A' + i;
-        std::cout << c << " ";
+    for (int c = 0; c < s; c++) {
+        std::cout << (char)('A' + c) << " ";
     }
-    std::cout << std::endl;
-
-    for (int row = 0; row < SIZE; row++) {
-        if (row + 1 < 10) {
-            std::cout << " " << row + 1 << " ";
-        } else {
-            std::cout << row + 1 << " ";
+    std::cout << "\n";
+    
+    // Board
+    for (int r = 0; r < s; r++) {
+        std::cout << (r + 1 < 10 ? " " : "") << (r + 1) << " ";
+        for (int c = 0; c < s; c++) {
+            int p = pos(r, c);
+            if (black[p]) std::cout << "X ";
+            else if (white[p]) std::cout << "O ";
+            else std::cout << ". ";
         }
-
-        for (int col = 0; col < SIZE; col++) {
-            int pos = row * SIZE + col;
-            if (black[pos]) {
-                std::cout << "X ";
-            } else if (white[pos]) {
-                std::cout << "O ";
-            } else {
-                std::cout << ". ";
-            }
-        }
-        std::cout << std::endl;
+        std::cout << "\n";
     }
 }
 
@@ -48,15 +42,8 @@ void Board::output_board() const
  */
 void Board::make_move(int pos, bool is_black)
 {
-    if (pos < 0 || pos >= SIZE * SIZE) {
-        return;
-    }
-
-    if (is_black) {
-        black.set(pos);
-    } else {
-        white.set(pos);
-    }
+    if (is_black) black.set(pos);
+    else white.set(pos);
 }
 
 /**
@@ -65,10 +52,8 @@ void Board::make_move(int pos, bool is_black)
  * @return void
  */
 void Board::undo_move(int pos) {
-        if (pos >= 0 && pos < SIZE * SIZE) {
-            black.reset(pos);
-            white.reset(pos);
-    }
+    black.reset(pos);
+    white.reset(pos);
 }
 
 /**
@@ -78,9 +63,6 @@ void Board::undo_move(int pos) {
  */
 bool Board::test_pos(int pos) const
 {
-    if (pos < 0 || pos >= SIZE * SIZE) {
-        return false;
-    }
     return black[pos] || white[pos];
 }
 
@@ -101,48 +83,32 @@ bool Board::check_win() const
  * @param board A bitset representing the positions of either black or white pieces on the board.
  * @return boolean ; true if there is a sequence of five consecutive pieces, false otherwise.
  */
-bool Board::check_five(const std::bitset<SIZE * SIZE>& board) const
+bool Board::check_five(const std::bitset<MAX_SQUARES>& pieces) const
 {
-    for (int row = 0; row < SIZE; row++) {
-        for (int col = 0; col < SIZE; col++) {
-            int pos = row * SIZE + col;
-            if (!board[pos]) continue;
+    int s = size();
+    
+    for (int p = 0; p < squares(); p++) {
+        if (!pieces[p]) continue;
+        
+        int r = row(p);
+        int c = col(p);
+        
+        // 4 directions: horizontal, vertical, diagonal down-right, diagonal up-right
+        static const int dx[] = {1, 0, 1, 1};
+        static const int dy[] = {0, 1, 1, -1};
+        
+        for (int dir = 0; dir < 4; dir++) {
+            int count = 1;
             
-            // horizontal
-            if (col <= SIZE - 5) {
-                bool win = true;
-                for (int i = 0; i < 5; i++) {
-                    if (!board[pos + i]) { win = false; break; }
-                }
-                if (win) return true;
+            // count forward
+            for (int i = 1; i < 5; i++) {
+                int nr = r + dy[dir] * i;
+                int nc = c + dx[dir] * i;
+                if (!in_bounds(nr, nc) || !pieces[pos(nr, nc)]) break;
+                count++;
             }
             
-            // vertical
-            if (row <= SIZE - 5) {
-                bool win = true;
-                for (int i = 0; i < 5; i++) {
-                    if (!board[pos + i * SIZE]) { win = false; break; }
-                }
-                if (win) return true;
-            }
-            
-            // diagonal right-down
-            if (col <= SIZE - 5 && row <= SIZE - 5) {
-                bool win = true;
-                for (int i = 0; i < 5; i++) {
-                    if (!board[pos + i * SIZE + i]) { win = false; break; }
-                }
-                if (win) return true;
-            }
-            
-            // diagonal left-down
-            if (col >= 4 && row <= SIZE - 5) {
-                bool win = true;
-                for (int i = 0; i < 5; i++) {
-                    if (!board[pos + i * SIZE - i]) { win = false; break; }
-                }
-                if (win) return true;
-            }
+            if (count >= 5) return true;
         }
     }
     return false;

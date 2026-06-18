@@ -39,13 +39,13 @@ moku --engine, -e
 ### PvP mode
 Run moku in PvP mode, to play a hottable game of gomoku:
 ```
-moku --pvp
+moku --pvp, -p
 ```
 
 ### Minimax mode
 Run moku in minimax mode, to play against an minimax agent:
 ```
-moku --minimax 
+moku --minimax, -m
 ```
 
 ### Version
@@ -59,10 +59,3 @@ Display a help screen:
 ```
 moku --help, -h
 ```
-
-## Todo
-### Minimaxing
-- [ ] Move ordering
-- [ ] Transposition table
-- [ ] Heuristics (Try previous good moves first)
-- [ ] Iterative deepening
