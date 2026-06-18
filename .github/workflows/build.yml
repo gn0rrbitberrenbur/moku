@@ -39,7 +39,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}-binary
-          path: build/${{ matrix.artifact }}
+          path: build/**/moku*
   
   release:
     needs: build
