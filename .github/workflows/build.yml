@@ -54,18 +54,11 @@ jobs:
       
       - uses: actions/download-artifact@v4
       
-      - name: Create source archive
-        run: |
-          REPO_NAME=$(basename "${{ github.repository }}")
-          TAG_NAME=${GITHUB_REF#refs/tags/}
-          git archive --format=tar.gz --prefix="${REPO_NAME}-${TAG_NAME}/" HEAD > "${REPO_NAME}-${TAG_NAME}-source.tar.gz"
-      
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             moku-linux/moku
             moku-windows/moku.exe
-            moku-*-source.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
