@@ -25,11 +25,7 @@ jobs:
         uses: microsoft/setup-msbuild@v2
       
       - name: Configure CMake
-        shell: bash
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          VERSION=${VERSION#v}
-          cmake -B build -DCMAKE_BUILD_TYPE=Release -DPROJECT_VERSION="$VERSION"
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
       
       - name: Build
         run: cmake --build build --config Release --target moku
