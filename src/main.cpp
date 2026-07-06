@@ -1,8 +1,8 @@
-#include "include/board.hpp"
-#include "include/gameloop.hpp"
-#include "include/engine.hpp"
-#include "include/config.hpp"
-#include "utils.hpp"
+#include "../include/board.hpp"
+#include "../include/gameloop.hpp"
+#include "../include/engine.hpp"
+#include "../include/config.hpp"
+#include "../include/utils.hpp"
 #include <iostream>
 #include <cstring>
 
@@ -26,6 +26,7 @@ void print_usage() {
     std::cout << "  --size, -s <n>    Board size (5-19, default: 15)" << std::endl;
     std::cout << "  --depth, -d <n>   Max search depth (default: 12)" << std::endl;
     std::cout << "  --time, -t <ms>   Time limit in ms (default: 20000)" << std::endl;
+    std::cout << "  --debug           Enable debug output" << std::endl;
     std::cout << "  --version, -v     Show version information" << std::endl;
     std::cout << "  --help, -h        Show this help" << std::endl;
 }
@@ -76,6 +77,9 @@ int main(int argc, char *argv[])
         }
         else if ((strcmp(argv[i], "--time") == 0 || strcmp(argv[i], "-t") == 0) && i + 1 < argc) {
             g_config.time_limit_ms = std::stoi(argv[++i]);
+        }
+        else if (strcmp(argv[i], "--debug") == 0) {
+            g_config.debug_output = true;
         }
     }
     

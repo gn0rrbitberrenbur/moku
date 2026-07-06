@@ -1,6 +1,6 @@
 #include "../include/board.hpp"
 #include "../include/utils.hpp"
-#include "../include/agents/evaluation.hpp"
+#include "../include/minimax/evaluation.hpp"
 #include "../include/config.hpp"
 #include "../include/engine.hpp"
 #include <gtest/gtest.h>

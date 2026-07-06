@@ -31,6 +31,7 @@ public:
     void undo_move(int pos);
     bool test_pos(int pos) const;
     bool check_win() const;
+    bool wins_at(int pos, bool is_black) const;
 
 private:
     bool check_five(const std::bitset<MAX_SQUARES>& board) const;

@@ -1,5 +1,5 @@
 #include "../include/gameloop.hpp"
-#include "../include/agents/minimax.hpp"
+#include "../include/minimax/minimax.hpp"
 #include "../include/utils.hpp"
 #include <iostream>
 #include <string>

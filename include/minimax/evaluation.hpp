@@ -27,4 +27,5 @@ public:
     int score_window(const Board &board, int pos, int dx, int dy, bool is_black) const;
     bool is_line_dead(const Board &board, int pos, int dx, int dy,
                       int count, bool is_black) const;
+    
 };

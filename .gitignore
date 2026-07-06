@@ -70,3 +70,6 @@ Testing/
 
 # build folder
 build/
+
+# Python cache
+__pycache__/

@@ -2,7 +2,7 @@
 moku is a simple engine for the game of gomoku, supporting hottable pvp in one terminal, an engine mode and playing against a minimax agent.
 
 ## Run
-to build, clone the repository and `cd`into it.
+To build, clone the repository and `cd` into it.
 
 Make sure you have installed `cmake` on your system.
 
@@ -17,12 +17,40 @@ Once the build is finished, run:
 
 ```
 cd build
-```
-
-and then
-
-```
 .\moku.exe [options]
+```
+
+### Build release
+To build a release run:
+```
+mkdir build
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+```
+
+### Only build certain parts
+#### Only build the excecutable
+To only build the excecutable, run:
+```
+mkdir build
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --target moku
+```
+
+#### Only build the Python library
+To only build the Python library, used for the RL training, run:
+```
+mkdir build
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --target pymoku
+```
+
+#### Only build the tests
+To only build the tests, run:
+```
+mkdir build
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --target run_tests
 ```
 
 ## Usage

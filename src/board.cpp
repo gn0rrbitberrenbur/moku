@@ -85,7 +85,7 @@ bool Board::check_win() const
  */
 bool Board::check_five(const std::bitset<MAX_SQUARES>& pieces) const
 {
-    int s = size();
+    // int s = size();
     
     for (int p = 0; p < squares(); p++) {
         if (!pieces[p]) continue;
@@ -110,6 +110,32 @@ bool Board::check_five(const std::bitset<MAX_SQUARES>& pieces) const
             
             if (count >= 5) return true;
         }
+    }
+    return false;
+}
+
+// new
+bool Board::wins_at(int move, bool is_black) const
+{
+    const std::bitset<MAX_SQUARES>& pieces = is_black ? black : white;
+    int r = row(move);
+    int c = col(move);
+
+    static const int dx[] = {1, 0, 1, 1};
+    static const int dy[] = {0, 1, 1, -1};
+
+    for (int dir = 0; dir < 4; dir++) {
+        int count = 1;
+        for (int s = -1; s <= 1; s += 2) {
+            int nr = r + dy[dir] * s;
+            int nc = c + dx[dir] * s;
+            while (in_bounds(nr, nc) && pieces[pos(nr, nc)]) {
+                count++;
+                nr += dy[dir] * s;
+                nc += dx[dir] * s;
+            }
+        }
+        if (count >= 5) return true;
     }
     return false;
 }

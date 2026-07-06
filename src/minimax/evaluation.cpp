@@ -1,4 +1,4 @@
-#include "../../include/agents/evaluation.hpp"
+#include "../../include/minimax/evaluation.hpp"
 #include "../../include/config.hpp"
 #include "../../include/board.hpp"
 #include <cmath>
@@ -117,12 +117,6 @@ float Evaluator::evaluate_board(const Board& board) const {
     const int SQUARES = SIZE * SIZE;
     
     init_tables(SIZE);
-    
-    // check for win first
-    bool black_moved_last = board.black.count() > board.white.count();
-    if (board.check_win()) {
-        return black_moved_last ? 100000.0f : -100000.0f;
-    }
     
     int score = 0;
     int black_threats = 0;

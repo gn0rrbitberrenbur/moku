@@ -1,4 +1,4 @@
-#include "../../include/agents/minimax.hpp"
+#include "../../include/minimax/minimax.hpp"
 #include <limits>
 #include <algorithm>
 #include <iostream>
@@ -62,23 +62,34 @@ int MinimaxAgent::get_best_move_timed(Board &board, bool is_black, int time_limi
     // initial hash
     uint64_t hash = tt.compute_hash(board, is_black);
     
-    std::cerr << "[info] Starting iterative deepening (limit: " 
-              << time_limit_ms << "ms, moves: " << moves.size() << ")" << std::endl;
+    if (g_config.debug_output == true) {
+        std::cerr << "[info] Starting iterative deepening (limit: " 
+                << time_limit_ms << "ms, moves: " << moves.size() << ")" << std::endl;
+    }
     
+    nodes_searched = 0;
+    tt_hits = 0;
+     
     // starting iterative deepening loop
     for (int depth = 1; depth <= max_depth; depth++) {
-        nodes_searched = 0;
-        tt_hits = 0;
         search_aborted = false;
         
         auto depth_start = std::chrono::high_resolution_clock::now();
-        
-        // order moves by priority for this depth
-        std::sort(moves.begin(), moves.end(), [&](int a, int b) {
-            return evaluator.move_priority(board, a, is_black) > 
-                   evaluator.move_priority(board, b, is_black);
-        });
-        
+
+        // Prioritäten einmal berechnen, dann sortieren
+        {
+            std::vector<std::pair<int, int>> scored;
+            scored.reserve(moves.size());
+            for (int m : moves)
+                scored.emplace_back(evaluator.move_priority(board, m, is_black), m);
+            std::sort(scored.begin(), scored.end(),
+                      [](const std::pair<int, int> &a, const std::pair<int, int> &b) {
+                          return a.first > b.first;
+                      });
+            for (size_t k = 0; k < moves.size(); k++)
+                moves[k] = scored[k].second;
+        }
+
         int current_best_move = moves[0];
         float current_best_score = is_black ? -std::numeric_limits<float>::infinity() 
                                             : std::numeric_limits<float>::infinity();
@@ -97,7 +108,13 @@ int MinimaxAgent::get_best_move_timed(Board &board, bool is_black, int time_limi
             uint64_t new_hash = tt.update_hash(hash, move, is_black);
             
             board.make_move(move, is_black);
-            float score = minimax(board, depth - 1, alpha, beta, !is_black, new_hash);
+            float score;
+            if (board.wins_at(move, is_black)) {
+                score = is_black ? 100000.0f - (max_depth - depth)
+                                 : -100000.0f + (max_depth - depth);
+            } else {
+                score = minimax(board, depth - 1, alpha, beta, !is_black, new_hash);
+            }
             board.undo_move(move);
             
             if (search_aborted) {
@@ -128,16 +145,20 @@ int MinimaxAgent::get_best_move_timed(Board &board, bool is_black, int time_limi
             best_score = current_best_score;
             completed_depth = depth;
             
-            std::cerr << "[info] Depth: " << depth 
-                      << " | Score: " << best_score
-                      << " | Best Move: " << best_move
-                      << " | Nodes: " << nodes_searched 
-                      << " | Time: " << (int)(depth_time * 1000) << "ms"
-                      << std::endl;
+            if (g_config.debug_output == true) {
+                std::cerr << "[info] Depth: " << depth 
+                        << " | Score: " << best_score
+                        << " | Best Move: " << best_move
+                        << " | Nodes: " << nodes_searched 
+                        << " | Time: " << (int)(depth_time * 1000) << "ms"
+                        << std::endl;
+            }
             
             // if winning move found, stop immediately
             if (std::abs(best_score) >= 90000) {
-                std::cerr << "[info] Winning move found!" << std::endl;
+                if (g_config.debug_output == true) {
+                    std::cerr << "[info] Winning move found at depth " << depth << std::endl;
+                }
                 break;
             }
         } else {
@@ -151,7 +172,9 @@ int MinimaxAgent::get_best_move_timed(Board &board, bool is_black, int time_limi
         ).count();
         
         if (total_elapsed * 10 > time_limit_ms) {
-            std::cerr << "[info] Not enough time for depth " << (depth + 1) << std::endl;
+            if (g_config.debug_output == true) {
+                std::cerr << "[info] Time limit reached after depth " << depth << std::endl;
+            }
             break;
         }
     }
@@ -160,13 +183,16 @@ int MinimaxAgent::get_best_move_timed(Board &board, bool is_black, int time_limi
     auto total_end = std::chrono::high_resolution_clock::now();
     double total_time = std::chrono::duration<double>(total_end - search_start).count();
     
-    std::cerr << "[info] Search complete: Depth: " << completed_depth 
-              << " | Best Move: " << best_move
-              << " | Time: " << (int)(total_time * 1000) << "ms"
-              << " | Nodes: " << nodes_searched
-              << " | TT Hits: " << tt_hits
-              << " | TT Size: " << tt.size()
-              << std::endl;
+    if (g_config.debug_output == true) {
+        std::cerr << "[info] Search complete: Depth: " << completed_depth 
+                << " | Best Move: " << best_move
+                << " | Time: " << (int)(total_time * 1000) << "ms"
+                << " | Nodes: " << nodes_searched
+                << " | TT Hits: " << tt_hits
+                << " | TT Size: " << tt.size()
+                << std::endl;
+    }
+
     
     time_limit = 0;  // reset
     return best_move;
@@ -195,15 +221,17 @@ float MinimaxAgent::minimax(Board &board, int depth, float alpha, float beta,
     if (search_aborted) {
         return 0;
     }
+
+    int ply = max_depth - depth;
     
     nodes_searched++;
     current_depth = max_depth - depth;
-    
+
     float original_alpha = alpha;
 
     // lookup in transposition table
-    TTEntry entry = {0, -1, TTEntry::EXACT, -1};  // score, depth, flag, best_move
-    bool tt_hit = tt.probe(hash, entry);
+    TTEntry entry = {0, -1, TTEntry::EXACT, -1};
+    bool tt_hit = tt.probe(hash, entry, ply);
 
     if (tt_hit) {
         tt_hits++;
@@ -224,11 +252,11 @@ float MinimaxAgent::minimax(Board &board, int depth, float alpha, float beta,
             }
         }
     }
-    if (board.check_win()) {
-        return is_maximizing ? -100000.0f : 100000.0f;
-    }
+
     if (depth == 0) {
-        return evaluator.evaluate_board(board);
+        float eval = evaluator.evaluate_board(board);
+        tt.store(hash, eval, 0, TTEntry::EXACT, -1, ply);
+        return eval;
     }
 
     std::vector<int> moves = evaluator.get_valid_moves(board);
@@ -237,22 +265,21 @@ float MinimaxAgent::minimax(Board &board, int depth, float alpha, float beta,
         return 0.0f;
     }
 
-    // move ordering: if tt entry has a move, try it first
     int tt_move = entry.best_move;
-    if (tt_move >= 0) {
-        auto it = std::find(moves.begin(), moves.end(), tt_move);
-        if (it != moves.end()) {
-            moves.erase(it);
-            moves.insert(moves.begin(), tt_move);
-        }
-    }
 
-    // order moves by priority
-    size_t start_idx = (tt_move >= 0) ? 1 : 0;
-    std::sort(moves.begin() + start_idx, moves.end(), [&](int a, int b) {
-        return evaluator.move_priority(board, a, is_maximizing) > 
-               evaluator.move_priority(board, b, is_maximizing);
-    });
+    {
+        std::vector<std::pair<int, int>> scored;
+        scored.reserve(moves.size());
+        for (int m : moves) {
+            if (m == tt_move) continue;
+            scored.emplace_back(evaluator.move_priority(board, m, is_maximizing), m);
+        }
+        std::sort(scored.begin(), scored.end(),
+                  [](const auto &a, const auto &b) { return a.first > b.first; });
+        moves.clear();
+        if (tt_move >= 0) moves.push_back(tt_move);
+        for (auto &p : scored) moves.push_back(p.second);
+    }
 
     int best_move = moves[0];
 
@@ -261,11 +288,16 @@ float MinimaxAgent::minimax(Board &board, int depth, float alpha, float beta,
 
         for (int move : moves) {
             if (search_aborted) break;
-            
+
             uint64_t new_hash = tt.update_hash(hash, move, true);
-            
+
             board.make_move(move, true);
-            float eval = minimax(board, depth - 1, alpha, beta, false, new_hash);
+            float eval;
+            if (board.wins_at(move, true)) {
+                eval = 100000.0f - (max_depth - depth);
+            } else {
+                eval = minimax(board, depth - 1, alpha, beta, false, new_hash);
+            }
             board.undo_move(move);
 
             if (eval > max_eval) {
@@ -274,14 +306,12 @@ float MinimaxAgent::minimax(Board &board, int depth, float alpha, float beta,
             }
             alpha = std::max(alpha, eval);
 
-            if (beta <= alpha) {
-                break;
-            }
+            if (beta <= alpha) break;
         }
         if (!search_aborted) {
             int flag = (max_eval <= original_alpha) ? TTEntry::UPPERBOUND :
                        (max_eval >= beta) ? TTEntry::LOWERBOUND : TTEntry::EXACT;
-            tt.store(hash, max_eval, depth, flag, best_move);
+            tt.store(hash, max_eval, depth, flag, best_move, ply);
         }
         return max_eval;
     } else {
@@ -289,11 +319,16 @@ float MinimaxAgent::minimax(Board &board, int depth, float alpha, float beta,
 
         for (int move : moves) {
             if (search_aborted) break;
-            
+
             uint64_t new_hash = tt.update_hash(hash, move, false);
-            
+
             board.make_move(move, false);
-            float eval = minimax(board, depth - 1, alpha, beta, true, new_hash);
+            float eval;
+            if (board.wins_at(move, false)) {
+                eval = -100000.0f + (max_depth - depth);
+            } else {
+                eval = minimax(board, depth - 1, alpha, beta, true, new_hash);
+            }
             board.undo_move(move);
 
             if (eval < min_eval) {
@@ -302,14 +337,12 @@ float MinimaxAgent::minimax(Board &board, int depth, float alpha, float beta,
             }
             beta = std::min(beta, eval);
 
-            if (beta <= alpha) {
-                break;
-            }
+            if (beta <= alpha) break;
         }
         if (!search_aborted) {
             int flag = (min_eval <= original_alpha) ? TTEntry::UPPERBOUND :
                        (min_eval >= beta) ? TTEntry::LOWERBOUND : TTEntry::EXACT;
-            tt.store(hash, min_eval, depth, flag, best_move);
+            tt.store(hash, min_eval, depth, flag, best_move, ply);
         }
         return min_eval;
     }
@@ -368,13 +401,15 @@ int MinimaxAgent::get_best_move(Board &board, bool is_black)
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end - begin;
-
-    std::cerr << "Depth: " << max_depth 
-              << " | Nodes: " << nodes_searched 
-              << " | TT Hits: " << tt_hits
-              << " | TT Size: " << tt.size()
-              << " | Score: " << best_score
-              << " | Time: " << duration.count() << " s" << std::endl;
+    if (g_config.debug_output == true) {
+        std::cerr << "[info] Search complete: Depth: " << max_depth 
+                << " | Best Move: " << best_move
+                << " | Time: " << (int)(duration.count() * 1000) << "ms"
+                << " | Nodes: " << nodes_searched
+                << " | TT Hits: " << tt_hits
+                << " | TT Size: " << tt.size()
+                << std::endl;
+    }
 
     return best_move;
 }

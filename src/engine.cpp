@@ -166,7 +166,9 @@ void Engine::cmd_turn(std::istringstream& iss) {
     
     int pos = y * g_config.board_size + x;
     
-    std::cerr << "DEBUG TURN: pos=" << pos << " board_size=" << g_config.board_size << std::endl;
+    if (g_config.debug_output == true) {
+        std::cerr << "[DEBUG TURN] pos=" << pos << " board_size=" << g_config.board_size << std::endl;
+    }
     
     if (pos < 0 || pos >= g_config.squares()) {
         std::cout << "ERROR coordinates out of bounds" << std::endl;
@@ -181,14 +183,19 @@ void Engine::cmd_turn(std::istringstream& iss) {
     }
     
     bool is_black = (board.black.count() == board.white.count());
-    std::cerr << "DEBUG TURN: is_black=" << is_black 
-              << " black_count=" << board.black.count()
-              << " white_count=" << board.white.count() << std::endl;
+    if (g_config.debug_output == true) {
+        std::cerr << "[DEBUG TURN] is_black=" << is_black 
+                << " black_count=" << board.black.count()
+                << " white_count=" << board.white.count() << std::endl;
+    }
+
     
     board.make_move(pos, is_black);
     
-    std::cerr << "DEBUG TURN: after move - black=" << board.black.count()
-              << " white=" << board.white.count() << std::endl;
+    if (g_config.debug_output == true) {
+        std::cerr << "[DEBUG TURN] after opponent move - black=" << board.black.count()
+                << " white=" << board.white.count() << std::endl;
+    }
     
     
     bool my_color = !is_black;

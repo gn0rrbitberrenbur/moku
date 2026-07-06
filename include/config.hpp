@@ -6,6 +6,10 @@ struct GameConfig {
     int time_limit_ms = 20000;
     
     int squares() const { return board_size * board_size; }
+
+    bool debug_output = false;
+
+    std::string version = "1.0.0";
 };
 
 // global instance

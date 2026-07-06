@@ -16,7 +16,7 @@
  */
 void print_version()
 {
-    std::cout << "moku Version 1.0\n";
+    std::cout << "moku Version " << g_config.version << std::endl;
 }
 
 /**

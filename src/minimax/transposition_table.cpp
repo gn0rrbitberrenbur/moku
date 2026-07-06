@@ -1,4 +1,4 @@
-#include "../../include/agents/transposition_table.hpp"
+#include "../../include/minimax/transposition_table.hpp"
 
 /**
  * This file implements the TranspositionTable class defined in ../include/agent/transposition_table.hpp, which
@@ -71,6 +71,8 @@ uint64_t TranspositionTable::update_hash(uint64_t hash, int move, bool is_black)
     return hash;
 }
 
+static constexpr float MATE = 90000.0f;
+
 /**
  * This function probes the transposition table for a given hash and retrieves the corresponding entry 
  * if it exists.
@@ -78,13 +80,13 @@ uint64_t TranspositionTable::update_hash(uint64_t hash, int move, bool is_black)
  * @param entry A reference to a TTEntry structure where the retrieved entry will be stored if found.
  * @return A boolean indicating whether the entry was found in the transposition table.
  */
-bool TranspositionTable::probe(uint64_t hash, TTEntry &entry) const {
-    auto it = table.find(hash);
-    if (it != table.end()) {
-        entry = it->second;
-        return true;
-    }
-    return false;
+bool TranspositionTable::probe(uint64_t hash, TTEntry &entry, int ply) const {
+    const TTEntry &slot = table[hash & TT_MASK];
+    if (slot.key != hash) return false;
+    entry = slot;
+    if (entry.score >= MATE) entry.score -= ply;
+    else if (entry.score <= -MATE) entry.score += ply;
+    return true;
 }
 
 /**
@@ -98,12 +100,13 @@ bool TranspositionTable::probe(uint64_t hash, TTEntry &entry) const {
  * @param best_move The best move found for this board state.
  * @return void
  */
-void TranspositionTable::store(uint64_t hash, float score, int depth, int flag, int best_move) {
-    auto it = table.find(hash);
-    
-    if (it == table.end() || it->second.depth <= depth) {
-        table[hash] = {score, depth, flag, best_move};
-    }
+void TranspositionTable::store(uint64_t hash, float score, int depth,
+                               int flag, int best_move, int ply) {
+    if (score >= MATE) score += ply;
+    else if (score <= -MATE) score -= ply;
+    TTEntry &slot = table[hash & TT_MASK];
+    if (slot.key != hash || slot.depth <= depth)
+        slot = {hash, score, depth, flag, best_move};
 }
 
 /**
@@ -112,5 +115,5 @@ void TranspositionTable::store(uint64_t hash, float score, int depth, int flag, 
  * @return void
  */
 void TranspositionTable::clear() {
-    table.clear();
+    std::fill(table.begin(), table.end(), TTEntry{});
 }
