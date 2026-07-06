@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(Gomoku VERSION 1.0)
+project(Gomoku VERSION ${PROJECT_VERSION})
+set(PROJECT_VERSION "1.0.0" CACHE STRING "Project version")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -123,3 +124,6 @@ add_executable(benchmark
 )
 
 target_include_directories(benchmark PRIVATE include)
+
+configure_file(${CMAKE_SOURCE_DIR}/include/config.hpp.in ${CMAKE_BINARY_DIR}/config.hpp @ONLY)
+target_include_directories(moku PRIVATE ${MOKU_INCLUDE_DIRS} ${CMAKE_BINARY_DIR})
