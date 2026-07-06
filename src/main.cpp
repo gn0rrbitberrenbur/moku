@@ -56,6 +56,9 @@ int main(int argc, char *argv[])
         else if (strcmp(argv[i], "--minimax") == 0 || strcmp(argv[i], "-m") == 0) {
             // minimax mode is the default, so no need to set a flag
         }
+        else if (strcmp(argv[i], "--benchmark") == 0 || strcmp(argv[i], "-b") == 0) {
+            // benchmark mode is not implemented yet, so no need to set a flag
+        }
         else if (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "-v") == 0) {
             print_version();
             return 0;

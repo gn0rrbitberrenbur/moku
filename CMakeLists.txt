@@ -125,5 +125,5 @@ add_executable(benchmark
 
 target_include_directories(benchmark PRIVATE include)
 
-configure_file(${CMAKE_SOURCE_DIR}/include/config.hpp.in ${CMAKE_BINARY_DIR}/config.hpp @ONLY)
+configure_file(${CMAKE_SOURCE_DIR}/include/config.hpp ${CMAKE_BINARY_DIR}/config.hpp @ONLY)
 target_include_directories(moku PRIVATE ${MOKU_INCLUDE_DIRS} ${CMAKE_BINARY_DIR})
