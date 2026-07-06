@@ -1,4 +1,3 @@
-#include "benchmark.cpp"
 #include "../include/board.hpp"
 #include "../include/gameloop.hpp"
 #include "../include/engine.hpp"
