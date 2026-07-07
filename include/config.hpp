@@ -9,7 +9,7 @@ struct GameConfig {
 
     bool debug_output = false;
 
-    std::string version = "0.0.1";
+    std::string version = "0.0.2";
 };
 
 // global instance
