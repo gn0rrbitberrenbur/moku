@@ -3,6 +3,9 @@
 #include <algorithm>
 #include <iostream>
 #include <chrono>
+#include <thread>
+#include <atomic>
+#include <mutex>
 
 /**
  * This file implements the Minimax class defined in ../include/agent/minimax.hpp, which uses the minimax algorithm 
@@ -224,7 +227,7 @@ float MinimaxAgent::minimax(Board &board, int depth, float alpha, float beta,
 
     int ply = max_depth - depth;
     
-    nodes_searched++;
+    nodes_searched.fetch_add(1, std::memory_order_relaxed);
     current_depth = max_depth - depth;
 
     float original_alpha = alpha;
@@ -234,7 +237,7 @@ float MinimaxAgent::minimax(Board &board, int depth, float alpha, float beta,
     bool tt_hit = tt.probe(hash, entry, ply);
 
     if (tt_hit) {
-        tt_hits++;
+        tt_hits.fetch_add(1, std::memory_order_relaxed);
         
         if (entry.depth >= depth) {
             if (entry.flag == TTEntry::EXACT) {
@@ -412,4 +415,159 @@ int MinimaxAgent::get_best_move(Board &board, bool is_black)
     }
 
     return best_move;
+}
+
+/**
+ * Lazy SMP: run several iterative-deepening searches in parallel that share the
+ * transposition table. The main thread (id 0) determines the returned move; the
+ * helper threads only warm/fill the shared TT so that the main thread searches
+ * deeper. Helper threads stagger their start depth to widen the search.
+ * @param board The current board state.
+ * @param is_black Whether the side to move is black.
+ * @param time_limit_ms Time budget in milliseconds.
+ * @return The best move found by the main thread.
+ */
+int MinimaxAgent::get_best_move_timed_smp(Board &board, bool is_black, int time_limit_ms) {
+    unsigned int threads = g_config.cores;
+    if (threads <= 1) {
+        return get_best_move_timed(board, is_black, time_limit_ms);
+    }
+
+    // shared state
+    search_start = std::chrono::high_resolution_clock::now();
+    time_limit = time_limit_ms;
+    search_aborted = false;
+    nodes_searched = 0;
+    tt_hits = 0;
+
+    std::vector<int> root_moves = evaluator.get_valid_moves(board);
+    if (root_moves.empty()) return -1;
+    if (root_moves.size() == 1) return root_moves[0];
+
+    std::atomic<int> shared_best_move{root_moves[0]};
+    std::atomic<int> completed_depth{0};
+    std::mutex result_mutex;
+
+    auto worker = [&](unsigned int thread_id) {
+        // each worker gets its own board copy so make/undo don't collide
+        Board local = board;
+        std::vector<int> moves = root_moves;
+        uint64_t root_hash = tt.compute_hash(local, is_black);
+
+        int local_best = moves[0];
+
+        // helper threads skew starting depth to diversify the search
+        int start_depth = 1 + (thread_id % 2);
+
+        for (int depth = start_depth; depth <= max_depth; depth++) {
+            if (is_time_up()) { search_aborted = true; break; }
+            if (search_aborted) break;
+
+            // order moves by priority (shared TT already influences deeper plies)
+            {
+                std::vector<std::pair<int, int>> scored;
+                scored.reserve(moves.size());
+                for (int m : moves)
+                    scored.emplace_back(evaluator.move_priority(local, m, is_black), m);
+                std::sort(scored.begin(), scored.end(),
+                          [](const auto &a, const auto &b) { return a.first > b.first; });
+                for (size_t k = 0; k < moves.size(); k++)
+                    moves[k] = scored[k].second;
+            }
+
+            int current_best_move = moves[0];
+            float current_best_score = is_black
+                ? -std::numeric_limits<float>::infinity()
+                :  std::numeric_limits<float>::infinity();
+
+            float alpha = -std::numeric_limits<float>::infinity();
+            float beta  =  std::numeric_limits<float>::infinity();
+            bool aborted_this_depth = false;
+
+            for (int move : moves) {
+                if (is_time_up()) { search_aborted = true; aborted_this_depth = true; break; }
+                if (search_aborted) { aborted_this_depth = true; break; }
+
+                uint64_t new_hash = tt.update_hash(root_hash, move, is_black);
+                local.make_move(move, is_black);
+                float score;
+                if (local.wins_at(move, is_black)) {
+                    score = is_black ? 100000.0f - (max_depth - depth)
+                                     : -100000.0f + (max_depth - depth);
+                } else {
+                    score = minimax(local, depth - 1, alpha, beta, !is_black, new_hash);
+                }
+                local.undo_move(move);
+
+                if (search_aborted) { aborted_this_depth = true; break; }
+
+                if (is_black) {
+                    if (score > current_best_score) {
+                        current_best_score = score; current_best_move = move;
+                    }
+                    alpha = std::max(alpha, score);
+                } else {
+                    if (score < current_best_score) {
+                        current_best_score = score; current_best_move = move;
+                    }
+                    beta = std::min(beta, score);
+                }
+            }
+
+            if (aborted_this_depth) break;
+
+            local_best = current_best_move;
+
+            {
+                std::lock_guard<std::mutex> lock(result_mutex);
+                if (depth > completed_depth.load()) {
+                    completed_depth = depth;
+                    shared_best_move = local_best;
+                }
+            }
+
+            if (thread_id == 0 && g_config.debug_output) {
+                auto now = std::chrono::high_resolution_clock::now();
+                double elapsed = std::chrono::duration<double>(now - search_start).count();
+                std::lock_guard<std::mutex> lock(result_mutex);
+                std::cerr << "[info] depth=" << depth
+                          << " | best=" << current_best_move
+                          << " | score=" << current_best_score
+                          << " | time=" << (int)(elapsed * 1000) << "ms"
+                          << " | nodes=" << nodes_searched.load(std::memory_order_relaxed)
+                          << " | tt_hits=" << tt_hits.load(std::memory_order_relaxed)
+                          << std::endl;
+            }
+
+            if (std::abs(current_best_score) >= 90000) {
+                search_aborted = true;
+                break;
+            }
+        }
+    };
+
+    std::vector<std::thread> pool;
+    pool.reserve(threads - 1);
+    for (unsigned int t = 1; t < threads; t++)
+        pool.emplace_back(worker, t);
+
+    worker(0);  // run one search on the calling thread
+
+    search_aborted = true;  // signal helpers to stop
+    for (auto &th : pool) th.join();
+
+    if (g_config.debug_output) {
+        auto total_end = std::chrono::high_resolution_clock::now();
+        double total_time = std::chrono::duration<double>(total_end - search_start).count();
+        std::cerr << "[info] SMP search: threads=" << threads
+                  << " | depth=" << completed_depth.load()
+                  << " | best=" << shared_best_move.load()
+                  << " | time=" << (int)(total_time * 1000) << "ms"
+                  << " | nodes=" << nodes_searched
+                  << " | tt_hits=" << tt_hits
+                  << std::endl;
+    }
+
+    time_limit = 0;
+    return shared_best_move.load();
 }

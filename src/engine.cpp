@@ -200,7 +200,7 @@ void Engine::cmd_turn(std::istringstream& iss) {
     
     bool my_color = !is_black;
     int search_time = (timeout_turn > 0) ? std::max(100, timeout_turn - 500) : 5000;
-    int best_move = agent.get_best_move_timed(board, my_color, search_time);
+    int best_move = agent.get_best_move_timed_smp(board, my_color, search_time);
     
     if (best_move < 0) {
         std::cout << "ERROR no valid move found" << std::endl;

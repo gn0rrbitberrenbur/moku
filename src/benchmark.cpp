@@ -33,7 +33,7 @@ static BenchResult run_position(const std::string &name,
 
     auto t0 = std::chrono::high_resolution_clock::now();
     int move = (time_ms > 0)
-                 ? agent.get_best_move_timed(board, side_to_move, time_ms)
+                 ? agent.get_best_move_timed_smp(board, side_to_move, time_ms)
                  : agent.get_best_move(board, side_to_move);
     auto t1 = std::chrono::high_resolution_clock::now();
 

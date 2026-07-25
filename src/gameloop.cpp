@@ -112,7 +112,7 @@ void game_loop_minimax(Board& board)
             board.make_move(pos, is_black_turn);
         } else {
             // ai turn with time limit
-            int best_move = ai.get_best_move_timed(board, is_black_turn, g_config.time_limit_ms);
+            int best_move = ai.get_best_move_timed_smp(board, is_black_turn, g_config.time_limit_ms);
             
             std::cout << "[info] AI plays: " << (char)('A' + best_move % SIZE) << (best_move / SIZE + 1) << std::endl;
             board.make_move(best_move, is_black_turn);

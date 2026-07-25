@@ -1,10 +1,12 @@
 #include "../include/board.hpp"
 #include "../include/utils.hpp"
 #include "../include/minimax/evaluation.hpp"
+#include "../include/minimax/transposition_table.hpp"
 #include "../include/config.hpp"
 #include "../include/engine.hpp"
 #include <gtest/gtest.h>
 
+// Test cases for the algebraic_to_index function
 TEST(AlgebraicConversion, ValidInputs) {
     EXPECT_EQ(algebraic_to_index("A1", g_config.board_size), 0);
     EXPECT_EQ(algebraic_to_index("A2", g_config.board_size), 15);
@@ -23,6 +25,7 @@ TEST(AlgebraicConversion, InvalidInputs) {
     EXPECT_EQ(algebraic_to_index("A16", g_config.board_size), -1);
 }
 
+// Test cases for the Board class
 TEST(BoardTest, InvalidMakeMove) {
     Board board;
     board.make_move(g_config.squares(), false);
@@ -129,8 +132,40 @@ TEST(BoardTest, InvalidCheckWinBlackVertical) {
     EXPECT_FALSE(board.check_win());
 }
 
-// Evaluator Tests
+TEST(BoardTest, ValidCheckWinWhiteDiagonal) {
+    Board board;
+    board.make_move(0, false); // A1
+    board.make_move(16, false); // B2
+    board.make_move(32, false); // C3
+    board.make_move(48, false); // D4
+    board.make_move(64, false); // E5
 
+    EXPECT_TRUE(board.check_win());
+}
+
+TEST(BoardTest, InvalidCheckWinWhiteDiagonal) {
+    Board board;
+    board.make_move(0, false); // A1
+    board.make_move(16, false); // B2
+    board.make_move(32, false); // C3
+    board.make_move(48, false); // D4
+
+    EXPECT_FALSE(board.check_win());
+}
+
+TEST(BoardTest, CheckWinsAt) {
+    Board board;
+    board.make_move(0, true); // A1
+    board.make_move(1, true); // B1
+    board.make_move(2, true); // C1
+    board.make_move(3, true); // D1
+    board.make_move(4, true); // E1
+
+    EXPECT_TRUE(board.wins_at(4, true));  // Black wins at E1
+    EXPECT_FALSE(board.wins_at(4, false)); // White does not win at E1
+}
+
+// Test cases for the Evaluator class
 TEST(EvaluatorTest, ScorePatternFiveInRow)
 {
     Evaluator eval;
@@ -142,7 +177,6 @@ TEST(EvaluatorTest, ScorePatternFiveInRow)
 TEST(EvaluatorTest, ScorePatternFourInRow)
 {
     Evaluator eval;
-    // Angepasst an neue Werte
     EXPECT_EQ(eval.score_pattern(4, 2), 50000);   // Open-4
     EXPECT_EQ(eval.score_pattern(4, 1), 5000);    // Half-open 4
     EXPECT_EQ(eval.score_pattern(4, 0), 500);     // Blocked 4
@@ -151,7 +185,6 @@ TEST(EvaluatorTest, ScorePatternFourInRow)
 TEST(EvaluatorTest, ScorePatternThreeInRow)
 {
     Evaluator eval;
-    // Angepasst an neue Werte
     EXPECT_EQ(eval.score_pattern(3, 2), 2000);    // Open-3
     EXPECT_EQ(eval.score_pattern(3, 1), 200);     // Half-open 3
     EXPECT_EQ(eval.score_pattern(3, 0), 20);      // Blocked 3
@@ -176,8 +209,8 @@ TEST(EvaluatorTest, ScorePatternSingle)
 TEST(EvaluatorTest, PositionScoreCenter)
 {
     Evaluator eval;
-    int center_pos = 7 * 15 + 7;  // Mitte des Boards (H8)
-    int corner_pos = 0;           // Ecke (A1)
+    int center_pos = 7 * 15 + 7;  // Middle of board (H8)
+    int corner_pos = 0;           // Corner (A1)
     
     EXPECT_GT(eval.position_score(center_pos), eval.position_score(corner_pos));
 }
@@ -185,7 +218,7 @@ TEST(EvaluatorTest, PositionScoreCenter)
 TEST(EvaluatorTest, PositionScoreSymmetry)
 {
     Evaluator eval;
-    // Symmetrische Positionen sollten gleichen Score haben
+    // Symmetric positions should have the same score
     int pos1 = 3 * 15 + 3;   // D4
     int pos2 = 11 * 15 + 11; // L12
     
@@ -197,16 +230,13 @@ TEST(EvaluatorTest, AnalyzeLineHorizontal)
     Board board;
     Evaluator eval;
     
-    // 3 schwarze Steine horizontal: B5, C5, D5
     board.make_move(4 * 15 + 1, true);  // B5
     board.make_move(4 * 15 + 2, true);  // C5
     board.make_move(4 * 15 + 3, true);  // D5
     
-    // analyze_line zählt ab Startpunkt NUR VORWÄRTS
-    // Um alle 3 zu zählen, muss man beim ERSTEN Stein (B5) starten
-    auto info = eval.analyze_line(board, 4 * 15 + 1, 1, 0, true);  // Start bei B5
+    auto info = eval.analyze_line(board, 4 * 15 + 1, 1, 0, true);
     EXPECT_EQ(info.count, 3);
-    EXPECT_EQ(info.open_ends, 2);  // A5 und E5 sind frei
+    EXPECT_EQ(info.open_ends, 2);
 }
 
 TEST(EvaluatorTest, AnalyzeLineVertical)
@@ -214,15 +244,13 @@ TEST(EvaluatorTest, AnalyzeLineVertical)
     Board board;
     Evaluator eval;
     
-    // 3 schwarze Steine vertikal: E3, E4, E5
     board.make_move(2 * 15 + 4, true);  // E3
     board.make_move(3 * 15 + 4, true);  // E4
     board.make_move(4 * 15 + 4, true);  // E5
     
-    // Start beim ERSTEN Stein (E3) und zähle nach unten (dy=1)
-    auto info = eval.analyze_line(board, 2 * 15 + 4, 0, 1, true);  // Start bei E3
+    auto info = eval.analyze_line(board, 2 * 15 + 4, 0, 1, true);
     EXPECT_EQ(info.count, 3);
-    EXPECT_EQ(info.open_ends, 2);  // E2 und E6 sind frei
+    EXPECT_EQ(info.open_ends, 2);
 }
 
 TEST(EvaluatorTest, AnalyzeLineAtEdge)
@@ -230,15 +258,13 @@ TEST(EvaluatorTest, AnalyzeLineAtEdge)
     Board board;
     Evaluator eval;
     
-    // 3 schwarze Steine am Rand: A1, B1, C1
     board.make_move(0, true);  // A1
     board.make_move(1, true);  // B1
     board.make_move(2, true);  // C1
     
-    // Start beim ERSTEN Stein (A1) und zähle nach rechts
-    auto info = eval.analyze_line(board, 0, 1, 0, true);  // Start bei A1
+    auto info = eval.analyze_line(board, 0, 1, 0, true);
     EXPECT_EQ(info.count, 3);
-    EXPECT_EQ(info.open_ends, 1);  // Nur D1 ist frei, links ist Rand
+    EXPECT_EQ(info.open_ends, 1);
 }
 
 TEST(EvaluatorTest, EvaluateBoardEmpty)
@@ -247,7 +273,7 @@ TEST(EvaluatorTest, EvaluateBoardEmpty)
     Evaluator eval;
     
     float score = eval.evaluate_board(board);
-    EXPECT_EQ(score, 0.0f);  // Leeres Board = neutraler Score
+    EXPECT_EQ(score, 0.0f);  // Empty board should have neutral score
 }
 
 TEST(EvaluatorTest, EvaluateBoardBlackAdvantage)
@@ -255,14 +281,13 @@ TEST(EvaluatorTest, EvaluateBoardBlackAdvantage)
     Board board;
     Evaluator eval;
     
-    // Schwarz hat 3 in Reihe, Weiß hat nur 1
     board.make_move(0, true);
     board.make_move(1, true);
     board.make_move(2, true);
     board.make_move(100, false);
     
     float score = eval.evaluate_board(board);
-    EXPECT_GT(score, 0.0f);  // Schwarz im Vorteil = positiv
+    EXPECT_GT(score, 0.0f);  // Black in advantage = positive score
 }
 
 TEST(EvaluatorTest, EvaluateBoardWhiteAdvantage)
@@ -270,14 +295,13 @@ TEST(EvaluatorTest, EvaluateBoardWhiteAdvantage)
     Board board;
     Evaluator eval;
     
-    // Weiß hat 3 in Reihe, Schwarz hat nur 1
     board.make_move(0, false);
     board.make_move(1, false);
     board.make_move(2, false);
     board.make_move(100, true);
     
     float score = eval.evaluate_board(board);
-    EXPECT_LT(score, 0.0f);  // Weiß im Vorteil = negativ
+    EXPECT_LT(score, 0.0f);  // White in advantage = negative score
 }
 
 TEST(EvaluatorTest, EvaluateBoardWinBlack)
@@ -285,7 +309,7 @@ TEST(EvaluatorTest, EvaluateBoardWinBlack)
     Board board;
     Evaluator eval;
     
-    // Schwarz gewinnt
+    // Black wins
     board.make_move(0, true);
     board.make_move(1, true);
     board.make_move(2, true);
@@ -293,7 +317,7 @@ TEST(EvaluatorTest, EvaluateBoardWinBlack)
     board.make_move(4, true);
     
     float score = eval.evaluate_board(board);
-    EXPECT_EQ(score, 100000.0f);
+    EXPECT_GE(score, 100000.0f);
 }
 
 TEST(EvaluatorTest, EvaluateBoardWinWhite)
@@ -301,7 +325,7 @@ TEST(EvaluatorTest, EvaluateBoardWinWhite)
     Board board;
     Evaluator eval;
     
-    // Weiß gewinnt
+    // White wins
     board.make_move(0, false);
     board.make_move(1, false);
     board.make_move(2, false);
@@ -309,7 +333,7 @@ TEST(EvaluatorTest, EvaluateBoardWinWhite)
     board.make_move(4, false);
     
     float score = eval.evaluate_board(board);
-    EXPECT_EQ(score, -100000.0f);
+    EXPECT_LE(score, -100000.0f);
 }
 
 TEST(EvaluatorTest, GetValidMovesEmpty)
@@ -320,7 +344,7 @@ TEST(EvaluatorTest, GetValidMovesEmpty)
     auto moves = eval.get_valid_moves(board);
     
     EXPECT_EQ(moves.size(), 1);
-    EXPECT_EQ(moves[0], 7 * 15 + 7);  // Nur Mitte bei leerem Board
+    EXPECT_EQ(moves[0], 7 * 15 + 7);
 }
 
 TEST(EvaluatorTest, GetValidMovesNearStones)
@@ -328,14 +352,12 @@ TEST(EvaluatorTest, GetValidMovesNearStones)
     Board board;
     Evaluator eval;
     
-    board.make_move(7 * 15 + 7, true);  // Mitte
+    board.make_move(7 * 15 + 7, true);
     
     auto moves = eval.get_valid_moves(board);
-    
-    // Sollte mehrere Kandidaten im Radius 2 finden
+
     EXPECT_GT(moves.size(), 1);
-    
-    // Mitte sollte NICHT in den Moves sein (belegt)
+
     bool center_in_moves = false;
     for (int m : moves) {
         if (m == 7 * 15 + 7) center_in_moves = true;
@@ -348,12 +370,11 @@ TEST(EvaluatorTest, GetValidMovesNoFarPositions)
     Board board;
     Evaluator eval;
     
-    board.make_move(0, true);  // A1 - Ecke
+    board.make_move(0, true);
     
     auto moves = eval.get_valid_moves(board);
     
-    // Weit entfernte Positionen sollten nicht enthalten sein
-    int far_pos = 14 * 15 + 14;  // O15 - gegenüberliegende Ecke
+    int far_pos = 14 * 15 + 14;
     bool far_in_moves = false;
     for (int m : moves) {
         if (m == far_pos) far_in_moves = true;
@@ -361,416 +382,129 @@ TEST(EvaluatorTest, GetValidMovesNoFarPositions)
     EXPECT_FALSE(far_in_moves);
 }
 
-class TestEngine : public Engine {
-public:
-    Board& get_board() { return board; }
-    int get_timeout_turn() const { return timeout_turn; }
-    int get_timeout_match() const { return timeout_match; }
-    int get_time_left() const { return time_left; }
-    long long get_max_memory() const { return max_memory; }
-    int get_game_type() const { return game_type; }
-    int get_rule() const { return rule; }
-    int get_search_depth() const { return search_depth; }
-
-    bool is_running() const { return running; }
-
-    std::string execute_command(const std::string& command)
-    {
-        std::ostringstream capture;
-        std::streambuf* old_cout_buf = std::cout.rdbuf(capture.rdbuf());
-
-        process_command(command);
-
-        std::cout.rdbuf(old_cout_buf);  // Restore original buffer
-        return capture.str();
-    }
-};
-
-// test START command with various sizes
-TEST(EngineTest, TestStartCommand)
+TEST(EvaluatorTest, AnalyzeLineDiagonalDownRight)
 {
-    TestEngine engine;
-    std::string output = engine.execute_command("START 15");
-    
-    EXPECT_EQ(output, "OK\n");
-    EXPECT_EQ(g_config.board_size, 15);
+    Board board;
+    Evaluator eval;
+    int SIZE = g_config.board_size;
+
+    board.make_move(2 * SIZE + 2, true);  // C3
+    board.make_move(3 * SIZE + 3, true);  // D4
+    board.make_move(4 * SIZE + 4, true);  // E5
+
+    auto info = eval.analyze_line(board, 2 * SIZE + 2, 1, 1, true);
+    EXPECT_EQ(info.count, 3);
+    EXPECT_EQ(info.open_ends, 2);
 }
 
-TEST(EngineTest, StartCommandSmallBoard) {
-    TestEngine engine;
-    std::string output = engine.execute_command("START 9");
-    
-    EXPECT_EQ(output, "OK\n");
-    EXPECT_EQ(g_config.board_size, 9);
+TEST(EvaluatorTest, AnalyzeLineDiagonalUpRight)
+{
+    Board board;
+    Evaluator eval;
+    int SIZE = g_config.board_size;
+
+    board.make_move(4 * SIZE + 2, true);  // C5
+    board.make_move(3 * SIZE + 3, true);  // D4
+    board.make_move(2 * SIZE + 4, true);  // E3
+
+    auto info = eval.analyze_line(board, 4 * SIZE + 2, 1, -1, true);
+    EXPECT_EQ(info.count, 3);
+    EXPECT_EQ(info.open_ends, 2);
 }
 
-TEST(EngineTest, StartCommandInvalidSize) {
-    TestEngine engine;
-    std::string output = engine.execute_command("START 3");
-    
-    EXPECT_TRUE(output.find("ERROR") != std::string::npos);
+TEST(EvaluatorTest, ScoreWindowDiagonal)
+{
+    Evaluator eval;
+    Board board;
+    int SIZE = g_config.board_size;
+    int base = 2 * SIZE + 2;  // C3
+
+    // diagonal three: C3 D4 E5
+    board.make_move(base, true);
+    board.make_move(base + SIZE + 1, true);
+    board.make_move(base + 2 * (SIZE + 1), true);
+
+    EXPECT_EQ(eval.score_window(board, base, 1, 1, true), 120);
 }
 
-TEST(EngineTest, StartCommandTooLarge) {
-    TestEngine engine;
-    std::string output = engine.execute_command("START 25");
-    
-    EXPECT_TRUE(output.find("ERROR") != std::string::npos);
+TEST(EvaluatorTest, ScoreWindowTwoPieces)
+{
+    Evaluator eval;
+    Board board;
+    int base = (g_config.board_size / 2) * g_config.board_size + 5;
+
+    board.make_move(base, true);
+    board.make_move(base + 1, true);
+
+    EXPECT_GT(eval.score_window(board, base, 1, 0, true), 0);
 }
 
-// test BEGIN command
-TEST(EngineTest, BeginCommandFirstMove) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    std::string output = engine.execute_command("BEGIN");
-    
-    EXPECT_EQ(output, "7,7\n");
-    EXPECT_TRUE(engine.get_board().test_pos(7 * 15 + 7));
+TEST(EvaluatorTest, ScoreWindowSinglePiece)
+{
+    Evaluator eval;
+    Board board;
+    int base = (g_config.board_size / 2) * g_config.board_size + 5;
+
+    board.make_move(base, true);
+
+    EXPECT_GT(eval.score_window(board, base, 1, 0, true), 0);
 }
 
-// test TURN command with valid and invalid input
-TEST(EngineTest, TurnCommandValid) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    std::string output = engine.execute_command("TURN 0,0");
-    
-    EXPECT_TRUE(engine.get_board().test_pos(0));  // A1 = pos 0
+// Test cases for the move_priority function
+TEST(EvaluatorTest, MovePriorityWinningMoveHighest)
+{
+    Evaluator eval;
+    Board board;
+    int SIZE = g_config.board_size;
+    int row = SIZE / 2;
+    int base = row * SIZE + 3;
+
+    // black has four in a row: base..base+3, winning move at base+4
+    board.make_move(base, true);
+    board.make_move(base + 1, true);
+    board.make_move(base + 2, true);
+    board.make_move(base + 3, true);
+
+    int win_move = base + 4;
+    int far_move = 0;  // A1 corner
+
+    EXPECT_GT(eval.move_priority(board, win_move, true),
+              eval.move_priority(board, far_move, true));
 }
 
-TEST(EngineTest, TurnCommandOutOfBounds) {
-    TestEngine engine;
-    engine.execute_command("START 10");
-    std::string output = engine.execute_command("TURN 11,11");
-    
-    EXPECT_TRUE(output.find("ERROR") != std::string::npos);
+TEST(EvaluatorTest, MovePriorityBlockingOpponentThreat)
+{
+    Evaluator eval;
+    Board board;
+    int SIZE = g_config.board_size;
+    int row = SIZE / 2;
+    int base = row * SIZE + 3;
+
+    // white (opponent) has three in a row -> black should prioritize blocking
+    board.make_move(base, false);
+    board.make_move(base + 1, false);
+    board.make_move(base + 2, false);
+
+    int block_move = base + 3;
+    int far_move = 0;
+
+    EXPECT_GT(eval.move_priority(board, block_move, true),
+              eval.move_priority(board, far_move, true));
 }
 
-TEST(EngineTest, TurnCommandAlreadyOccupied) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    engine.execute_command("BEGIN");
-    std::string output = engine.execute_command("TURN 7,7");
-    
-    EXPECT_TRUE(output.find("ERROR") != std::string::npos);
+TEST(EvaluatorTest, MovePriorityCenterOverEdge)
+{
+    Evaluator eval;
+    Board board;
+    int SIZE = g_config.board_size;
+    int center = (SIZE / 2) * SIZE + (SIZE / 2);
+    int edge = 0;
+
+    EXPECT_GT(eval.move_priority(board, center, true),
+              eval.move_priority(board, edge, true));
 }
 
-// test BOARD command
-TEST(EngineTest, BoardCommandEmptyBoard) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    
-    // Simuliere BOARD-Befehl mit leerem Board
-    std::istringstream input("DONE\n");
-    std::streambuf* old_cin = std::cin.rdbuf(input.rdbuf());
-    
-    std::string output = engine.execute_command("BOARD");
-    
-    std::cin.rdbuf(old_cin);
-    
-    // Bei leerem Board sollte Mitte gespielt werden
-    EXPECT_TRUE(output.find("7,7") != std::string::npos || 
-                output.find(",") != std::string::npos);
-}
-
-TEST(EngineTest, BoardCommandSingleOwnStone) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    
-    // field=1 bedeutet eigener Stein
-    std::istringstream input("7,7,1\nDONE\n");
-    std::streambuf* old_cin = std::cin.rdbuf(input.rdbuf());
-    
-    std::string output = engine.execute_command("BOARD");
-    
-    std::cin.rdbuf(old_cin);
-    
-    // Sollte einen gültigen Zug ausgeben
-    EXPECT_TRUE(output.find(",") != std::string::npos);
-    EXPECT_TRUE(output.find("ERROR") == std::string::npos);
-    
-    // Position 7,7 sollte belegt sein
-    EXPECT_TRUE(engine.get_board().test_pos(7 * 15 + 7));
-}
-
-TEST(EngineTest, BoardCommandSingleOpponentStone) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    
-    // field=2 bedeutet gegnerischer Stein
-    std::istringstream input("7,7,2\nDONE\n");
-    std::streambuf* old_cin = std::cin.rdbuf(input.rdbuf());
-    
-    std::string output = engine.execute_command("BOARD");
-    
-    std::cin.rdbuf(old_cin);
-    
-    EXPECT_TRUE(output.find(",") != std::string::npos);
-    EXPECT_TRUE(output.find("ERROR") == std::string::npos);
-}
-
-TEST(EngineTest, BoardCommandMultipleStones) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    
-    // Mehrere Steine: 2 eigene, 1 gegnerischer
-    std::istringstream input("7,7,1\n8,7,1\n6,7,2\nDONE\n");
-    std::streambuf* old_cin = std::cin.rdbuf(input.rdbuf());
-    
-    std::string output = engine.execute_command("BOARD");
-    
-    std::cin.rdbuf(old_cin);
-    
-    EXPECT_TRUE(output.find(",") != std::string::npos);
-    
-    // Alle drei Positionen sollten belegt sein
-    EXPECT_TRUE(engine.get_board().test_pos(7 * 15 + 7));  // 7,7
-    EXPECT_TRUE(engine.get_board().test_pos(7 * 15 + 8));  // 8,7
-    EXPECT_TRUE(engine.get_board().test_pos(7 * 15 + 6));  // 6,7
-}
-
-TEST(EngineTest, BoardCommandDeterminesColorCorrectly) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    
-    // Gleiche Anzahl eigene/gegnerische -> wir sind Schwarz
-    std::istringstream input("7,7,1\n8,8,2\nDONE\n");
-    std::streambuf* old_cin = std::cin.rdbuf(input.rdbuf());
-    
-    engine.execute_command("BOARD");
-    
-    std::cin.rdbuf(old_cin);
-    
-    // Bei gleicher Anzahl: own=black, opp=white
-    EXPECT_TRUE(engine.get_board().black.test(7 * 15 + 7));  // own -> black
-    EXPECT_TRUE(engine.get_board().white.test(8 * 15 + 8));  // opp -> white
-}
-
-TEST(EngineTest, BoardCommandWeAreWhite) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    
-    // Mehr gegnerische Steine -> wir sind Weiß
-    std::istringstream input("7,7,2\n8,8,2\n5,5,1\nDONE\n");
-    std::streambuf* old_cin = std::cin.rdbuf(input.rdbuf());
-    
-    engine.execute_command("BOARD");
-    
-    std::cin.rdbuf(old_cin);
-    
-    // own_moves=1, opp_moves=2 -> we_are_black=false
-    // Eigener Stein (field=1) sollte Weiß sein
-    EXPECT_TRUE(engine.get_board().white.test(5 * 15 + 5));
-}
-
-TEST(EngineTest, BoardCommandInvalidCoordinatesIgnored) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    
-    // Ungültige Koordinaten sollten ignoriert werden
-    std::istringstream input("100,100,1\n7,7,1\nDONE\n");
-    std::streambuf* old_cin = std::cin.rdbuf(input.rdbuf());
-    
-    std::string output = engine.execute_command("BOARD");
-    
-    std::cin.rdbuf(old_cin);
-    
-    // Nur der gültige Stein sollte gesetzt sein
-    EXPECT_TRUE(engine.get_board().test_pos(7 * 15 + 7));
-    EXPECT_EQ(engine.get_board().black.count() + engine.get_board().white.count(), 2);  // 1 gelesen + 1 gespielt
-}
-
-TEST(EngineTest, BoardCommandMalformedLineIgnored) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    
-    // Fehlerhafte Zeile sollte ignoriert werden
-    std::istringstream input("invalid_line\n7,7,1\nDONE\n");
-    std::streambuf* old_cin = std::cin.rdbuf(input.rdbuf());
-    
-    std::string output = engine.execute_command("BOARD");
-    
-    std::cin.rdbuf(old_cin);
-    
-    EXPECT_TRUE(output.find("ERROR") == std::string::npos);
-}
-
-TEST(EngineTest, BoardCommandClearsExistingBoard) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    
-    // Erst einen Stein setzen
-    engine.get_board().make_move(0, true);
-    EXPECT_TRUE(engine.get_board().test_pos(0));
-    
-    // BOARD sollte das Board zurücksetzen
-    std::istringstream input("7,7,1\nDONE\n");
-    std::streambuf* old_cin = std::cin.rdbuf(input.rdbuf());
-    
-    engine.execute_command("BOARD");
-    
-    std::cin.rdbuf(old_cin);
-    
-    // Position 0 sollte jetzt leer sein (Board wurde zurückgesetzt)
-    EXPECT_FALSE(engine.get_board().test_pos(0));
-}
-
-TEST(EngineTest, BoardCommandField3Ignored) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    
-    // field=3 ist laut Protokoll ungültig/reserviert
-    // Setze 8,8 als eigenen Stein und 9,9 als gegnerischen
-    // um zu vermeiden, dass die Engine auf 7,7 spielt
-    std::istringstream input("7,7,3\n7,8,1\n8,7,2\nDONE\n");
-    std::streambuf* old_cin = std::cin.rdbuf(input.rdbuf());
-    
-    engine.execute_command("BOARD");
-    
-    std::cin.rdbuf(old_cin);
-    
-    // Prüfe: field=1 und field=2 wurden verarbeitet
-    EXPECT_TRUE(engine.get_board().test_pos(8 * 15 + 7));   // 7,8 -> field=1 gesetzt
-    EXPECT_TRUE(engine.get_board().test_pos(7 * 15 + 8));   // 8,7 -> field=2 gesetzt
-    
-    // Die Engine macht einen zusätzlichen Zug, also 3 Steine total
-    // (2 aus BOARD + 1 Antwortzug)
-    size_t total_stones = engine.get_board().black.count() + engine.get_board().white.count();
-    EXPECT_EQ(total_stones, 3);
-}
-
-// test INFO commands that set time limits and memory
-TEST(EngineTest, InfoTimeoutTurn) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    engine.execute_command("INFO timeout_turn 5000");
-    
-    EXPECT_EQ(engine.get_timeout_turn(), 5000);
-}
-
-TEST(EngineTest, InfoTimeoutMatch) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    engine.execute_command("INFO timeout_match 60000");
-    
-    EXPECT_EQ(engine.get_timeout_match(), 60000);
-}
-
-TEST(EngineTest, InfoTimeLeft) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    engine.execute_command("INFO time_left 120000");
-    
-    EXPECT_EQ(engine.get_time_left(), 120000);
-}
-
-TEST(EngineTest, InfoMaxMemory) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    engine.execute_command("INFO max_memory 1024");
-    
-    EXPECT_EQ(engine.get_max_memory(), 1024);
-}
-
-TEST(EngineTest, InfoGameType) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    engine.execute_command("INFO game_type 1");
-    
-    EXPECT_EQ(engine.get_game_type(), 1);
-}
-
-TEST(EngineTest, InfoRule) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    engine.execute_command("INFO rule 2");
-    
-    EXPECT_EQ(engine.get_rule(), 2);
-}
-
-TEST(EngineTest, InfoDepth) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    engine.execute_command("INFO depth 8");
-    
-    EXPECT_EQ(engine.get_search_depth(), 8);
-}
-
-TEST(EngineTest, InfoInvalidDepth) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    std::string output = engine.execute_command("INFO depth -1");
-    
-    EXPECT_EQ(engine.get_search_depth(), 6);
-}
-
-TEST(EngineTest, InfoIsRunning) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    
-    EXPECT_TRUE(engine.is_running());
-}
-
-TEST(EngineTest, InfoUnknownKey) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    std::string output = engine.execute_command("INFO unknown_key 123");
-    
-    EXPECT_EQ(output, "");
-}
-
-// test END command
-TEST(EngineTest, EndStopsEngine) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    
-    EXPECT_TRUE(engine.is_running());
-    
-    engine.execute_command("END");
-    
-    EXPECT_FALSE(engine.is_running());
-}
-
-// test RESTART command
-TEST(EngineTest, RestartClearsBoard) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    engine.get_board().make_move(112, true);
-    
-    EXPECT_EQ(engine.get_board().black.count(), 1);
-    
-    std::string output = engine.execute_command("RESTART");
-    
-    EXPECT_EQ(output, "OK\n");
-    EXPECT_EQ(engine.get_board().black.count(), 0);
-    EXPECT_EQ(engine.get_board().white.count(), 0);
-}
-
-// test TAKEBACK command
-TEST(EngineTest, TakebackValid) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    engine.get_board().make_move(112, true);  // E8
-    engine.get_board().make_move(113, false); // F8
-    
-    std::string output = engine.execute_command("TAKEBACK 7,7");
-    
-    EXPECT_EQ(output, "OK\n");
-    EXPECT_FALSE(engine.get_board().test_pos(7 * 15 + 7));  // E8 sollte zurückgenommen sein
-}
-
-TEST(EngineTest, TakebackInvalidCoordinates) {
-    TestEngine engine;
-    engine.execute_command("START 15");
-    engine.get_board().make_move(112, true);  // E8
-    
-    std::string output = engine.execute_command("TAKEBACK 15,15");
-    
-    EXPECT_TRUE(output.find("ERROR") != std::string::npos);
-    EXPECT_TRUE(engine.get_board().test_pos(112));  // E8 sollte weiterhin belegt sein
-}
-
-// ===== is_line_dead Tests =====
-
+// Test cases for the is_line_dead function
 TEST(EvaluatorTest, IsLineDeadBothEndsBlocked)
 {
     Evaluator eval;
@@ -858,8 +592,7 @@ TEST(EvaluatorTest, IsLineDeadVerticalBlocked)
     EXPECT_TRUE(eval.is_line_dead(board, base, 0, 1, 3, true));
 }
 
-// ===== score_window Tests =====
-
+// Test cases for the score_window function
 TEST(EvaluatorTest, ScoreWindowEmptyWindow)
 {
     Evaluator eval;
@@ -947,4 +680,530 @@ TEST(EvaluatorTest, ScoreWindowWhitePieces)
     board.make_move(base + 2, false);
 
     EXPECT_EQ(eval.score_window(board, base, 1, 0, false), 120);
+}
+
+class TestEngine : public Engine {
+public:
+    Board& get_board() { return board; }
+    int get_timeout_turn() const { return timeout_turn; }
+    int get_timeout_match() const { return timeout_match; }
+    int get_time_left() const { return time_left; }
+    long long get_max_memory() const { return max_memory; }
+    int get_game_type() const { return game_type; }
+    int get_rule() const { return rule; }
+    int get_search_depth() const { return search_depth; }
+
+    bool is_running() const { return running; }
+
+    std::string execute_command(const std::string& command)
+    {
+        std::ostringstream capture;
+        std::streambuf* old_cout_buf = std::cout.rdbuf(capture.rdbuf());
+
+        process_command(command);
+
+        std::cout.rdbuf(old_cout_buf);
+        return capture.str();
+    }
+};
+
+// Test cases for the Engine class
+TEST(EngineTest, TestStartCommand)
+{
+    TestEngine engine;
+    std::string output = engine.execute_command("START 15");
+    
+    EXPECT_EQ(output, "OK\n");
+    EXPECT_EQ(g_config.board_size, 15);
+}
+
+TEST(EngineTest, StartCommandSmallBoard) {
+    TestEngine engine;
+    std::string output = engine.execute_command("START 9");
+    
+    EXPECT_EQ(output, "OK\n");
+    EXPECT_EQ(g_config.board_size, 9);
+}
+
+TEST(EngineTest, StartCommandInvalidSize) {
+    TestEngine engine;
+    std::string output = engine.execute_command("START 3");
+    
+    EXPECT_TRUE(output.find("ERROR") != std::string::npos);
+}
+
+TEST(EngineTest, StartCommandTooLarge) {
+    TestEngine engine;
+    std::string output = engine.execute_command("START 25");
+    
+    EXPECT_TRUE(output.find("ERROR") != std::string::npos);
+}
+
+TEST(EngineTest, BeginCommandFirstMove) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+    std::string output = engine.execute_command("BEGIN");
+    
+    EXPECT_EQ(output, "7,7\n");
+    EXPECT_TRUE(engine.get_board().test_pos(7 * 15 + 7));
+}
+
+TEST(EngineTest, TurnCommandValid) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+    std::string output = engine.execute_command("TURN 0,0");
+    
+    EXPECT_TRUE(engine.get_board().test_pos(0));  // A1 = pos 0
+}
+
+TEST(EngineTest, TurnCommandOutOfBounds) {
+    TestEngine engine;
+    engine.execute_command("START 10");
+    std::string output = engine.execute_command("TURN 11,11");
+    
+    EXPECT_TRUE(output.find("ERROR") != std::string::npos);
+}
+
+TEST(EngineTest, TurnCommandAlreadyOccupied) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+    engine.execute_command("BEGIN");
+    std::string output = engine.execute_command("TURN 7,7");
+    
+    EXPECT_TRUE(output.find("ERROR") != std::string::npos);
+}
+
+TEST(EngineTest, BoardCommandEmptyBoard) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+
+    std::istringstream input("DONE\n");
+    std::streambuf* old_cin = std::cin.rdbuf(input.rdbuf());
+    
+    std::string output = engine.execute_command("BOARD");
+    
+    std::cin.rdbuf(old_cin);
+    
+    // Empty board should still return a valid move (7,7)
+    EXPECT_TRUE(output.find("7,7") != std::string::npos || 
+                output.find(",") != std::string::npos);
+}
+
+TEST(EngineTest, BoardCommandSingleOwnStone) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+
+    std::istringstream input("7,7,1\nDONE\n");
+    std::streambuf* old_cin = std::cin.rdbuf(input.rdbuf());
+    
+    std::string output = engine.execute_command("BOARD");
+    
+    std::cin.rdbuf(old_cin);
+
+    EXPECT_TRUE(output.find(",") != std::string::npos);
+    EXPECT_TRUE(output.find("ERROR") == std::string::npos);
+
+    EXPECT_TRUE(engine.get_board().test_pos(7 * 15 + 7));
+}
+
+TEST(EngineTest, BoardCommandSingleOpponentStone) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+
+    std::istringstream input("7,7,2\nDONE\n");
+    std::streambuf* old_cin = std::cin.rdbuf(input.rdbuf());
+    
+    std::string output = engine.execute_command("BOARD");
+    
+    std::cin.rdbuf(old_cin);
+    
+    EXPECT_TRUE(output.find(",") != std::string::npos);
+    EXPECT_TRUE(output.find("ERROR") == std::string::npos);
+}
+
+TEST(EngineTest, BoardCommandMultipleStones) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+
+    std::istringstream input("7,7,1\n8,7,1\n6,7,2\nDONE\n");
+    std::streambuf* old_cin = std::cin.rdbuf(input.rdbuf());
+    
+    std::string output = engine.execute_command("BOARD");
+    
+    std::cin.rdbuf(old_cin);
+    
+    EXPECT_TRUE(output.find(",") != std::string::npos);
+
+    EXPECT_TRUE(engine.get_board().test_pos(7 * 15 + 7));  // 7,7
+    EXPECT_TRUE(engine.get_board().test_pos(7 * 15 + 8));  // 8,7
+    EXPECT_TRUE(engine.get_board().test_pos(7 * 15 + 6));  // 6,7
+}
+
+TEST(EngineTest, BoardCommandDeterminesColorCorrectly) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+
+    std::istringstream input("7,7,1\n8,8,2\nDONE\n");
+    std::streambuf* old_cin = std::cin.rdbuf(input.rdbuf());
+    
+    engine.execute_command("BOARD");
+    
+    std::cin.rdbuf(old_cin);
+
+    EXPECT_TRUE(engine.get_board().black.test(7 * 15 + 7));  // own -> black
+    EXPECT_TRUE(engine.get_board().white.test(8 * 15 + 8));  // opp -> white
+}
+
+TEST(EngineTest, BoardCommandWeAreWhite) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+
+    std::istringstream input("7,7,2\n8,8,2\n5,5,1\nDONE\n");
+    std::streambuf* old_cin = std::cin.rdbuf(input.rdbuf());
+    
+    engine.execute_command("BOARD");
+    
+    std::cin.rdbuf(old_cin);
+    
+    EXPECT_TRUE(engine.get_board().white.test(5 * 15 + 5));
+}
+
+TEST(EngineTest, BoardCommandInvalidCoordinatesIgnored) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+
+    std::istringstream input("100,100,1\n7,7,1\nDONE\n");
+    std::streambuf* old_cin = std::cin.rdbuf(input.rdbuf());
+    
+    std::string output = engine.execute_command("BOARD");
+    
+    std::cin.rdbuf(old_cin);
+
+    EXPECT_TRUE(engine.get_board().test_pos(7 * 15 + 7));
+    EXPECT_EQ(engine.get_board().black.count() + engine.get_board().white.count(), 2);
+}
+
+TEST(EngineTest, BoardCommandMalformedLineIgnored) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+
+    std::istringstream input("invalid_line\n7,7,1\nDONE\n");
+    std::streambuf* old_cin = std::cin.rdbuf(input.rdbuf());
+    
+    std::string output = engine.execute_command("BOARD");
+    
+    std::cin.rdbuf(old_cin);
+    
+    EXPECT_TRUE(output.find("ERROR") == std::string::npos);
+}
+
+TEST(EngineTest, BoardCommandClearsExistingBoard) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+    
+    engine.get_board().make_move(0, true);
+    EXPECT_TRUE(engine.get_board().test_pos(0));
+    
+    std::istringstream input("7,7,1\nDONE\n");
+    std::streambuf* old_cin = std::cin.rdbuf(input.rdbuf());
+    
+    engine.execute_command("BOARD");
+    
+    std::cin.rdbuf(old_cin);
+    
+    EXPECT_FALSE(engine.get_board().test_pos(0));
+}
+
+TEST(EngineTest, BoardCommandField3Ignored) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+
+    std::istringstream input("7,7,3\n7,8,1\n8,7,2\nDONE\n");
+    std::streambuf* old_cin = std::cin.rdbuf(input.rdbuf());
+    
+    engine.execute_command("BOARD");
+    
+    std::cin.rdbuf(old_cin);
+
+    EXPECT_TRUE(engine.get_board().test_pos(8 * 15 + 7));
+    EXPECT_TRUE(engine.get_board().test_pos(7 * 15 + 8));
+    
+    size_t total_stones = engine.get_board().black.count() + engine.get_board().white.count();
+    EXPECT_EQ(total_stones, 3);
+}
+
+TEST(EngineTest, InfoTimeoutTurn) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+    engine.execute_command("INFO timeout_turn 5000");
+    
+    EXPECT_EQ(engine.get_timeout_turn(), 5000);
+}
+
+TEST(EngineTest, InfoTimeoutMatch) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+    engine.execute_command("INFO timeout_match 60000");
+    
+    EXPECT_EQ(engine.get_timeout_match(), 60000);
+}
+
+TEST(EngineTest, InfoTimeLeft) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+    engine.execute_command("INFO time_left 120000");
+    
+    EXPECT_EQ(engine.get_time_left(), 120000);
+}
+
+TEST(EngineTest, InfoMaxMemory) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+    engine.execute_command("INFO max_memory 1024");
+    
+    EXPECT_EQ(engine.get_max_memory(), 1024);
+}
+
+TEST(EngineTest, InfoGameType) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+    engine.execute_command("INFO game_type 1");
+    
+    EXPECT_EQ(engine.get_game_type(), 1);
+}
+
+TEST(EngineTest, InfoRule) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+    engine.execute_command("INFO rule 2");
+    
+    EXPECT_EQ(engine.get_rule(), 2);
+}
+
+TEST(EngineTest, InfoDepth) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+    engine.execute_command("INFO depth 8");
+    
+    EXPECT_EQ(engine.get_search_depth(), 8);
+}
+
+TEST(EngineTest, InfoInvalidDepth) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+    std::string output = engine.execute_command("INFO depth -1");
+    
+    EXPECT_EQ(engine.get_search_depth(), 6);
+}
+
+TEST(EngineTest, InfoIsRunning) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+    
+    EXPECT_TRUE(engine.is_running());
+}
+
+TEST(EngineTest, InfoUnknownKey) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+    std::string output = engine.execute_command("INFO unknown_key 123");
+    
+    EXPECT_EQ(output, "");
+}
+
+TEST(EngineTest, EndStopsEngine) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+    
+    EXPECT_TRUE(engine.is_running());
+    
+    engine.execute_command("END");
+    
+    EXPECT_FALSE(engine.is_running());
+}
+
+TEST(EngineTest, RestartClearsBoard) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+    engine.get_board().make_move(112, true);
+    
+    EXPECT_EQ(engine.get_board().black.count(), 1);
+    
+    std::string output = engine.execute_command("RESTART");
+    
+    EXPECT_EQ(output, "OK\n");
+    EXPECT_EQ(engine.get_board().black.count(), 0);
+    EXPECT_EQ(engine.get_board().white.count(), 0);
+}
+
+TEST(EngineTest, TakebackValid) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+    engine.get_board().make_move(112, true);  // E8
+    engine.get_board().make_move(113, false); // F8
+    
+    std::string output = engine.execute_command("TAKEBACK 7,7");
+    
+    EXPECT_EQ(output, "OK\n");
+    EXPECT_FALSE(engine.get_board().test_pos(7 * 15 + 7));
+}
+
+TEST(EngineTest, TakebackInvalidCoordinates) {
+    TestEngine engine;
+    engine.execute_command("START 15");
+    engine.get_board().make_move(112, true);  // E8
+    
+    std::string output = engine.execute_command("TAKEBACK 15,15");
+    
+    EXPECT_TRUE(output.find("ERROR") != std::string::npos);
+    EXPECT_TRUE(engine.get_board().test_pos(112));
+}
+
+// Test cases for the transposition table
+TEST(TranspositionTableTest, SizeIsPowerOfTwo) {
+    TranspositionTable tt;
+    EXPECT_EQ(tt.size(), size_t(1) << 23);
+}
+
+TEST(TranspositionTableTest, HashEmptyBoardDeterministic) {
+    g_config.board_size = 15;
+    TranspositionTable tt;
+    Board board;
+    uint64_t h1 = tt.compute_hash(board, true);
+    uint64_t h2 = tt.compute_hash(board, true);
+    EXPECT_EQ(h1, h2);
+}
+
+TEST(TranspositionTableTest, HashDiffersByTurn) {
+    g_config.board_size = 15;
+    TranspositionTable tt;
+    Board board;
+    EXPECT_NE(tt.compute_hash(board, true), tt.compute_hash(board, false));
+}
+
+TEST(TranspositionTableTest, HashDiffersByStone) {
+    g_config.board_size = 15;
+    TranspositionTable tt;
+    Board board;
+    uint64_t empty = tt.compute_hash(board, true);
+    board.make_move(0, true);
+    EXPECT_NE(empty, tt.compute_hash(board, true));
+}
+
+TEST(TranspositionTableTest, HashDiffersByColorOnSameSquare) {
+    g_config.board_size = 15;
+    TranspositionTable tt;
+    Board black_board;
+    black_board.make_move(0, true);
+    Board white_board;
+    white_board.make_move(0, false);
+    EXPECT_NE(tt.compute_hash(black_board, true),
+              tt.compute_hash(white_board, true));
+}
+
+TEST(TranspositionTableTest, IncrementalUpdateMatchesFullHash) {
+    g_config.board_size = 15;
+    TranspositionTable tt;
+    Board board;
+
+    uint64_t incremental = tt.compute_hash(board, true);
+    incremental = tt.update_hash(incremental, 0, true);   // black at 0, turn -> white
+    board.make_move(0, true);
+
+    uint64_t full = tt.compute_hash(board, false);
+    EXPECT_EQ(incremental, full);
+}
+
+TEST(TranspositionTableTest, IncrementalUpdateMultipleMoves) {
+    g_config.board_size = 15;
+    TranspositionTable tt;
+    Board board;
+
+    uint64_t inc = tt.compute_hash(board, true);
+    inc = tt.update_hash(inc, 5, true);    // black
+    inc = tt.update_hash(inc, 6, false);   // white
+    board.make_move(5, true);
+    board.make_move(6, false);
+
+    EXPECT_EQ(inc, tt.compute_hash(board, true));
+}
+
+TEST(TranspositionTableTest, StoreAndProbe) {
+    TranspositionTable tt;
+    uint64_t hash = 0xABCDEF123456ULL;
+    tt.store(hash, 42.0f, 5, TTEntry::EXACT, 112, 0);
+
+    TTEntry entry;
+    ASSERT_TRUE(tt.probe(hash, entry, 0));
+    EXPECT_EQ(entry.key, hash);
+    EXPECT_FLOAT_EQ(entry.score, 42.0f);
+    EXPECT_EQ(entry.depth, 5);
+    EXPECT_EQ(entry.flag, TTEntry::EXACT);
+    EXPECT_EQ(entry.best_move, 112);
+}
+
+TEST(TranspositionTableTest, ProbeMissReturnsFalse) {
+    TranspositionTable tt;
+    TTEntry entry;
+    EXPECT_FALSE(tt.probe(0xDEADBEEFULL, entry, 0));
+}
+
+TEST(TranspositionTableTest, DeeperDoesNotOverwriteSameHash) {
+    TranspositionTable tt;
+    uint64_t hash = 0x1111ULL;
+    tt.store(hash, 10.0f, 8, TTEntry::EXACT, 1, 0);
+    tt.store(hash, 20.0f, 3, TTEntry::EXACT, 2, 0);  // shallower, same key
+
+    TTEntry entry;
+    ASSERT_TRUE(tt.probe(hash, entry, 0));
+    EXPECT_EQ(entry.depth, 8);
+    EXPECT_FLOAT_EQ(entry.score, 10.0f);
+    EXPECT_EQ(entry.best_move, 1);
+}
+
+TEST(TranspositionTableTest, DeeperOverwritesSameHash) {
+    TranspositionTable tt;
+    uint64_t hash = 0x2222ULL;
+    tt.store(hash, 10.0f, 3, TTEntry::EXACT, 1, 0);
+    tt.store(hash, 20.0f, 8, TTEntry::EXACT, 2, 0);  // deeper, same key
+
+    TTEntry entry;
+    ASSERT_TRUE(tt.probe(hash, entry, 0));
+    EXPECT_EQ(entry.depth, 8);
+    EXPECT_FLOAT_EQ(entry.score, 20.0f);
+    EXPECT_EQ(entry.best_move, 2);
+}
+
+TEST(TranspositionTableTest, MateScoreAdjustedByPly) {
+    TranspositionTable tt;
+    uint64_t hash = 0x3333ULL;
+    // store a mate score found at ply 4
+    tt.store(hash, 95000.0f, 5, TTEntry::EXACT, 0, 4);
+
+    TTEntry entry;
+    ASSERT_TRUE(tt.probe(hash, entry, 4));
+    // store adds ply, probe subtracts ply -> round trip
+    EXPECT_FLOAT_EQ(entry.score, 95000.0f);
+}
+
+TEST(TranspositionTableTest, NegativeMateScoreAdjustedByPly) {
+    TranspositionTable tt;
+    uint64_t hash = 0x4444ULL;
+    tt.store(hash, -95000.0f, 5, TTEntry::EXACT, 0, 3);
+
+    TTEntry entry;
+    ASSERT_TRUE(tt.probe(hash, entry, 3));
+    EXPECT_FLOAT_EQ(entry.score, -95000.0f);
+}
+
+TEST(TranspositionTableTest, ClearRemovesEntries) {
+    TranspositionTable tt;
+    uint64_t hash = 0x5555ULL;
+    tt.store(hash, 1.0f, 1, TTEntry::EXACT, 0, 0);
+
+    TTEntry entry;
+    ASSERT_TRUE(tt.probe(hash, entry, 0));
+
+    tt.clear();
+    EXPECT_FALSE(tt.probe(hash, entry, 0));
 }

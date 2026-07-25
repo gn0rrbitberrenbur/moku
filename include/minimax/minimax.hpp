@@ -4,6 +4,7 @@
 #include "transposition_table.hpp"
 #include <chrono>
 #include "../config.hpp"
+#include <atomic>
 
 class MinimaxAgent {
 public:
@@ -14,27 +15,28 @@ public:
     
     // new function with time limit
     int get_best_move_timed(Board &board, bool is_black, int time_limit_ms);
+    int get_best_move_timed_smp(Board &board, bool is_black, int time_limit_ms);
     
     // setters and getters for max depth
     void set_max_depth(int depth) { if (depth > 0) max_depth = depth; }
     int get_max_depth() const { return max_depth; }
     
     // statistics
-    int get_nodes_searched() const { return nodes_searched; }
-    int get_tt_hits() const { return tt_hits; }
+    long long get_nodes_searched() const { return nodes_searched.load(std::memory_order_relaxed); }
+    long long get_tt_hits() const { return tt_hits.load(std::memory_order_relaxed); }
     
     void clear_tt() { tt.clear(); }
     
 private:
     int max_depth;
-    int nodes_searched = 0;
+    std::atomic<long long> nodes_searched{0};
+    std::atomic<long long> tt_hits{0};
     int current_depth = 0;
-    int tt_hits = 0;
     
     // time control
     std::chrono::time_point<std::chrono::high_resolution_clock> search_start;
     int time_limit = 0;
-    bool search_aborted = false;
+    std::atomic<bool> search_aborted{false};
     
     Evaluator evaluator;
     TranspositionTable tt;

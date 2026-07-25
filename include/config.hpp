@@ -1,4 +1,5 @@
 #pragma once
+#include <thread>
 
 struct GameConfig {
     int board_size = 15;
@@ -9,7 +10,11 @@ struct GameConfig {
 
     bool debug_output = false;
 
-    std::string version = "0.0.1";
+    std::string version = "0.0.2";
+
+    unsigned int cores = std::thread::hardware_concurrency() == 0
+                             ? 1
+                             : std::thread::hardware_concurrency();
 };
 
 // global instance

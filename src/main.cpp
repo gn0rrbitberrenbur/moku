@@ -26,6 +26,7 @@ void print_usage() {
     std::cout << "  --size, -s <n>    Board size (5-19, default: 15)" << std::endl;
     std::cout << "  --depth, -d <n>   Max search depth (default: 12)" << std::endl;
     std::cout << "  --time, -t <ms>   Time limit in ms (default: 20000)" << std::endl;
+    std::cout << "  --cores, -c <n>   Number of CPU cores to use (default: max available)" << std::endl;
     std::cout << "  --debug           Enable debug output" << std::endl;
     std::cout << "  --version, -v     Show version information" << std::endl;
     std::cout << "  --help, -h        Show this help" << std::endl;
@@ -78,6 +79,15 @@ int main(int argc, char *argv[])
         else if ((strcmp(argv[i], "--time") == 0 || strcmp(argv[i], "-t") == 0) && i + 1 < argc) {
             g_config.time_limit_ms = std::stoi(argv[++i]);
         }
+        else if ((strcmp(argv[i], "--cores") == 0 || strcmp(argv[i], "-c") == 0) && i + 1 < argc) {
+            int cores = std::stoi(argv[++i]);
+            if (cores < 1) cores = 1;
+            if (cores > static_cast<int>(std::thread::hardware_concurrency())) {
+                std::cerr << "[warning] Requested cores exceed hardware concurrency, using max available cores" << std::endl;
+                cores = std::thread::hardware_concurrency();
+            }
+            g_config.cores = static_cast<unsigned int>(cores);
+        }
         else if (strcmp(argv[i], "--debug") == 0) {
             g_config.debug_output = true;
         }
@@ -88,7 +98,8 @@ int main(int argc, char *argv[])
         std::cout << "[info] Config: size=" << g_config.board_size 
                   << "x" << g_config.board_size
                   << ", depth=" << g_config.max_depth
-                  << ", time=" << g_config.time_limit_ms << "ms" << std::endl;
+                  << ", time=" << g_config.time_limit_ms << "ms"
+                  << ", cores=" << g_config.cores << std::endl;
     }
     
     if (engine_mode) {
