@@ -1,25 +1,23 @@
+#include "../include/benchmark.hpp"
 #include "../include/board.hpp"
 #include "../include/minimax/minimax.hpp"
 #include "../include/config.hpp"
 #include "../include/utils.hpp"
-#include <chrono>
-#include <iostream>
-#include <iomanip>
-#include <vector>
-#include <string>
 
-struct BenchResult {
-    std::string name;
-    int reached_depth;
-    long long nodes;
-    long long tt_hits;
-    size_t tt_size;
-    double time_s;
-    int best_move;
-    float score;
-};
-
-static BenchResult run_position(const std::string &name,
+/**
+ * This function runs a benchmark for a given board position.
+ * It sets up the board according to the provided moves, initializes a MinimaxAgent,
+ * and measures the time taken to compute the best move.
+ * @param name A descriptive name for the benchmark position.
+ * @param setup A vector of pairs representing the moves to set up the board.
+ * Each pair consists of a string (the move in algebraic notation) and a boolean (true for black, false for white).
+ * @param side_to_move A boolean indicating which side is to move next (true for black, false for white).
+ * @param depth The maximum depth for the Minimax search.
+ * @param time_ms The time limit in milliseconds for the search. If 0, no time limit is applied.
+ * @return A BenchResult struct containing the results of the benchmark, including the best move found, 
+ * nodes searched, and time taken.
+ */
+BenchResult run_position(const std::string &name,
                                 const std::vector<std::pair<std::string, bool>> &setup,
                                 bool side_to_move,
                                 int depth,
@@ -49,16 +47,19 @@ static BenchResult run_position(const std::string &name,
     return r;
 }
 
-int main(int argc, char **argv) {
+/**
+ * This is the main function for the benchmark program. It initializes the benchmark environment,
+ * runs a series of predefined benchmark positions, and outputs the results in a formatted table.
+ * @param argc The number of command-line arguments.
+ * @param argv An array of command-line argument strings. The first argument can specify the search depth, 
+ * and the second argument can specify the time limit in milliseconds.
+ * @return An integer status code (0 for success).
+ */
+int run_benchmark(int depth, int time_ms) {
     std::cout << "moku (Version " << g_config.version << ")\n"
-              << " Running Benchmark with depth " << (argc > 1 ? argv[1] : "default")
-              << " and time limit " << (argc > 2 ? argv[2] : "default") << "ms" << std::endl;
+              << " Running Benchmark with depth " << depth
+              << " and time limit " << time_ms << "ms" << std::endl;
     g_config.debug_output = false;
-
-    int depth = 8;
-    int time_ms = 0;
-    if (argc > 1) depth = std::stoi(argv[1]);
-    if (argc > 2) time_ms = std::stoi(argv[2]);
 
     std::vector<BenchResult> results;
 

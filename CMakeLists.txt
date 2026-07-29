@@ -38,6 +38,7 @@ add_executable(moku
     src/gameloop.cpp
     src/utils.cpp
     src/engine.cpp
+    src/benchmark.cpp
     src/minimax/evaluation.cpp
     src/minimax/minimax.cpp
     src/minimax/transposition_table.cpp
@@ -63,7 +64,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(pybind11)
 
 pybind11_add_module(pymoku
-    qlearning/bindings.cpp
+    py_bindings/bindings.cpp
     src/board.cpp
     src/minimax/minimax.cpp
     src/minimax/evaluation.cpp
@@ -111,15 +112,3 @@ include(GoogleTest)
 gtest_discover_tests(run_tests
     DISCOVERY_TIMEOUT 30
     )
-
-# Benchmark
-add_executable(benchmark
-    src/benchmark.cpp
-    src/board.cpp
-    src/utils.cpp
-    src/minimax/minimax.cpp
-    src/minimax/evaluation.cpp
-    src/minimax/transposition_table.cpp
-)
-
-target_include_directories(benchmark PRIVATE include)

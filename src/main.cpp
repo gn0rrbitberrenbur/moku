@@ -3,6 +3,7 @@
 #include "../include/engine.hpp"
 #include "../include/config.hpp"
 #include "../include/utils.hpp"
+#include "../include/benchmark.hpp"
 #include <iostream>
 #include <cstring>
 
@@ -29,6 +30,7 @@ void print_usage() {
     std::cout << "  --cores, -c <n>   Number of CPU cores to use (default: max available)" << std::endl;
     std::cout << "  --debug           Enable debug output" << std::endl;
     std::cout << "  --version, -v     Show version information" << std::endl;
+    std::cout << "  --benchmark, -b   Run benchmark tests" << std::endl;
     std::cout << "  --help, -h        Show this help" << std::endl;
 }
 
@@ -60,6 +62,13 @@ int main(int argc, char *argv[])
         else if (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "-v") == 0) {
             print_version();
             return 0;
+        }
+        else if (strcmp(argv[i], "--benchmark") == 0 || strcmp(argv[i], "-b") == 0) {
+            int depth = g_config.max_depth;
+            int time_ms = 0;
+            if (i + 1 < argc && argv[i + 1][0] != '-') depth = std::stoi(argv[++i]);
+            if (i + 1 < argc && argv[i + 1][0] != '-') time_ms = std::stoi(argv[++i]);
+            return run_benchmark(depth, time_ms);
         }
         else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             print_usage();
