@@ -14,6 +14,8 @@
  * @param side_to_move A boolean indicating which side is to move next (true for black, false for white).
  * @param depth The maximum depth for the Minimax search.
  * @param time_ms The time limit in milliseconds for the search. If 0, no time limit is applied.
+ * @param board_size The board size to use for this position. Temporarily overrides the global
+ * board size so the algebraic coordinate mapping and the search operate on the same dimensions.
  * @return A BenchResult struct containing the results of the benchmark, including the best move found, 
  * nodes searched, and time taken.
  */
@@ -21,10 +23,14 @@ BenchResult run_position(const std::string &name,
                                 const std::vector<std::pair<std::string, bool>> &setup,
                                 bool side_to_move,
                                 int depth,
-                                int time_ms) {
+                                int time_ms,
+                                int board_size) {
+    int prev_board_size = g_config.board_size;
+    g_config.board_size = board_size;
+
     Board board;
     for (auto &[sq, blk] : setup)
-        board.make_move(algebraic_to_index(sq), blk);
+        board.make_move(algebraic_to_index(sq, board_size), blk);
 
     MinimaxAgent agent(depth);
     agent.clear_tt();
@@ -44,6 +50,8 @@ BenchResult run_position(const std::string &name,
     r.time_s = std::chrono::duration<double>(t1 - t0).count();
     r.best_move = move;
     r.score = 0;
+
+    g_config.board_size = prev_board_size;
     return r;
 }
 
@@ -82,6 +90,40 @@ int run_benchmark(int depth, int time_ms) {
         { {"H8", false}, {"A1", true}, {"H9", false}, {"A2", true},
           {"H10", false}, {"A3", true}, {"H11", false} },
         false, depth, time_ms));
+
+    results.push_back(run_position(
+        "midgame_dense",
+        { {"F8", true}, {"H8", true}, {"K8", true}, {"G7", true}, {"I7", true},
+          {"G9", true}, {"J9", true}, {"H10", true}, {"K10", true}, {"I11", true},
+          {"G11", true}, {"K11", true}, {"L9", true},
+          {"G8", false}, {"I8", false}, {"J8", false}, {"H7", false}, {"J7", false},
+          {"H9", false}, {"I9", false}, {"G10", false}, {"J10", false}, {"H11", false},
+          {"J11", false}, {"F9", false}, {"L8", false} },
+        true, depth, time_ms));
+
+    results.push_back(run_position(
+        "endgame_sparse",
+        { {"D4", true}, {"G7", true}, {"K10", true}, {"N14", true}, {"Q17", true},
+          {"F15", true}, {"P6", true},
+          {"E5", false}, {"H8", false}, {"L11", false}, {"M13", false}, {"R18", false},
+          {"G16", false}, {"P7", false} },
+        true, depth, time_ms, 19));
+
+    results.push_back(run_position(
+        "tt_stress",
+        { {"C3", true}, {"D4", true}, {"H8", true}, {"I9", true}, {"M13", true},
+          {"L12", true},
+          {"D3", false}, {"C4", false}, {"I8", false}, {"H9", false}, {"L13", false},
+          {"M12", false} },
+        true, depth, time_ms));
+
+    results.push_back(run_position(
+        "branching_wide",
+        { {"C3", true}, {"F6", true}, {"I9", true}, {"L12", true}, {"N4", true},
+          {"D11", true},
+          {"E13", false}, {"K5", false}, {"G8", false}, {"M9", false}, {"H4", false},
+          {"J13", false} },
+        true, depth, time_ms));
 
     std::cout << std::left
               << std::setw(16) << "position"

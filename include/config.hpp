@@ -10,7 +10,7 @@ struct GameConfig {
 
     bool debug_output = false;
 
-    std::string version = "0.0.3";
+    std::string version = "0.0.4";
 
     unsigned int cores = std::thread::hardware_concurrency() == 0
                              ? 1

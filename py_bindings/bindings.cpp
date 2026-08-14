@@ -3,9 +3,11 @@
 #include <pybind11/numpy.h>
 #include "../include/board.hpp"
 #include "../include/minimax/minimax.hpp"
+#include "../include/minimax/evaluation.hpp"
 #include "../include/minimax/transposition_table.hpp"
 #include "../include/config.hpp"
 #include "../include/utils.hpp"
+#include "../include/benchmark.hpp"
 
 namespace py = pybind11;
 
@@ -55,6 +57,15 @@ PYBIND11_MODULE(pymoku, m) {
         .def("get_tt_hits", &MinimaxAgent::get_tt_hits)
         .def("clear_tt", &MinimaxAgent::clear_tt);
 
+    py::class_<Evaluator>(m, "Evaluator")
+        .def(py::init<>())
+        .def("evaluate_board", &Evaluator::evaluate_board, py::arg("board"))
+        .def("evaluate_board_stm", &Evaluator::evaluate_board_stm,
+             py::arg("board"), py::arg("black_to_move"))
+        .def("get_valid_moves", &Evaluator::get_valid_moves, py::arg("board"))
+        .def("move_priority", &Evaluator::move_priority,
+             py::arg("board"), py::arg("move"), py::arg("is_black"));
+
     py::class_<TranspositionTable>(m, "TranspositionTable")
         .def(py::init<>())
         .def("compute_hash", &TranspositionTable::compute_hash,
@@ -72,4 +83,20 @@ PYBIND11_MODULE(pymoku, m) {
     m.def("get_board_size", []() { return g_config.board_size; });
     m.def("algebraic_to_index", &algebraic_to_index,
           py::arg("input"), py::arg("size") = 0);
+        
+    py::class_<BenchResult>(m, "BenchResult")
+        .def_readonly("name", &BenchResult::name)
+        .def_readonly("reached_depth", &BenchResult::reached_depth)
+        .def_readonly("nodes", &BenchResult::nodes)
+        .def_readonly("tt_hits", &BenchResult::tt_hits)
+        .def_readonly("tt_size", &BenchResult::tt_size)
+        .def_readonly("time_s", &BenchResult::time_s)
+        .def_readonly("best_move", &BenchResult::best_move)
+        .def_readonly("score", &BenchResult::score);
+
+    m.def("run_position", &run_position,
+          py::arg("name"), py::arg("setup"), py::arg("side_to_move"),
+          py::arg("depth"), py::arg("time_ms"), py::arg("board_size") = 15);
+    m.def("run_benchmark", &run_benchmark,
+          py::arg("depth"), py::arg("time_ms"));
 }

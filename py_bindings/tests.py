@@ -125,3 +125,25 @@ print("[SUCCESS] Zobrist update/compute consistent.")
 
 print("Output of board:")
 b.output_board()
+
+setup = [("H8", True), ("I9", False)]
+res = pymoku.run_position("bench_test", setup, True, 4, 1000)
+assert res.name == "bench_test"
+assert res.reached_depth >= 1
+assert res.nodes > 0
+assert res.best_move in pymoku.Board().legal_moves()
+if res.name == "bench_test" and res.reached_depth >= 1 and res.nodes > 0:
+    print("[SUCCESS] run_position returned valid BenchResult.")
+else:
+    print("[ERROR] run_position result invalid.")
+
+print("[TEST] reached_depth:", res.reached_depth)
+print("[TEST] nodes:", res.nodes)
+print("[TEST] tt_hits:", res.tt_hits)
+print("[TEST] tt_size:", res.tt_size)
+print("[TEST] time_s:", res.time_s)
+print("[TEST] best_move:", res.best_move)
+print("[TEST] score:", res.score)
+
+rc = pymoku.run_benchmark(4, 1000)
+print("[TEST] run_benchmark return code:", rc)

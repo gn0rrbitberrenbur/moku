@@ -70,6 +70,7 @@ pybind11_add_module(pymoku
     src/minimax/evaluation.cpp
     src/minimax/transposition_table.cpp
     src/utils.cpp
+    src/benchmark.cpp
 )
 
 target_include_directories(pymoku PRIVATE ${MOKU_INCLUDE_DIRS})

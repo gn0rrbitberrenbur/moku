@@ -85,8 +85,6 @@ bool Board::check_win() const
  */
 bool Board::check_five(const std::bitset<MAX_SQUARES>& pieces) const
 {
-    // int s = size();
-    
     for (int p = 0; p < squares(); p++) {
         if (!pieces[p]) continue;
         

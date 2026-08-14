@@ -21,6 +21,7 @@ BenchResult run_position(const std::string &name,
                          const std::vector<std::pair<std::string, bool>> &setup,
                          bool side_to_move,
                          int depth,
-                         int time_ms);
+                         int time_ms,
+                         int board_size = 15);
 
 int run_benchmark(int depth, int time_ms);

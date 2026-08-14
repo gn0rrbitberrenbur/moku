@@ -69,6 +69,9 @@ void Engine::process_command(const std::string& line) {
         // rectangular board not supported in current implementation
         std::cout << "ERROR rectangular board not supported" << std::endl;
     }
+    else if (cmd_upper == "ABOUT") {
+        cmd_about();
+    }
     // debugging commands, not part of gomocup protocol
     else if (cmd_upper == "DISPLAY" || cmd_upper == "D") {
         cmd_display();
@@ -356,6 +359,10 @@ void Engine::cmd_info(std::istringstream& iss) {
         }
     }
     // no answer expected for INFO command
+}
+
+void Engine::cmd_about() {
+    std::cout << "name=\"moku\", version=\"" << g_config.version << "\""<< std::endl; 
 }
 
 /**
