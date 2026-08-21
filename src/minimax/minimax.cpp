@@ -82,7 +82,6 @@ int MinimaxAgent::get_best_move_timed(Board &board, bool is_black, int time_limi
         
         auto depth_start = std::chrono::high_resolution_clock::now();
 
-        // Prioritäten einmal berechnen, dann sortieren
         {
             std::vector<std::pair<int, int>> scored;
             scored.reserve(moves.size());
