@@ -102,7 +102,8 @@ inline Evaluator::LineInfo Evaluator::analyze_line_fast(
 }
 
 /**
- * In one forward walk it computes the gap-aware window score (any opponent stone or an edge overrun
+ * Merged single-scan line analysis used by evaluate_board. In one forward walk
+ * it computes the gap-aware window score (any opponent stone or an edge overrun
  * makes the window worthless) together with the length of the leading solid run,
  * then inspects the two boundary cells for open ends. Replaces the previous
  * three separate passes (analyze_line_fast, is_line_dead, score_window).

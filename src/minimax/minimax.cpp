@@ -56,11 +56,14 @@ int MinimaxAgent::get_best_move_timed(Board &board, bool is_black, int time_limi
     
     // if only one move possible, return immediately
     if (moves.size() == 1) {
+        last_root_score = 0.0f;
+        last_root_candidates = { RootCandidate{ moves[0], 0.0f, 0 } };
         return moves[0];
     }
     
     // set best_move to first move as fallback
     best_move = moves[0];
+    last_root_candidates.clear();
     
     // initial hash
     uint64_t hash = tt.compute_hash(board, is_black);
@@ -100,6 +103,9 @@ int MinimaxAgent::get_best_move_timed(Board &board, bool is_black, int time_limi
         float alpha = -std::numeric_limits<float>::infinity();
         float beta = std::numeric_limits<float>::infinity();
         
+        std::vector<RootCandidate> depth_candidates;
+        depth_candidates.reserve(moves.size());
+
         for (size_t i = 0; i < moves.size(); i++) {
             int move = moves[i];
             
@@ -110,6 +116,7 @@ int MinimaxAgent::get_best_move_timed(Board &board, bool is_black, int time_limi
             
             uint64_t new_hash = tt.update_hash(hash, move, is_black);
             
+            long long nodes_before = nodes_searched.load(std::memory_order_relaxed);
             board.make_move(move, is_black);
             float score;
             if (board.wins_at(move, is_black)) {
@@ -124,6 +131,10 @@ int MinimaxAgent::get_best_move_timed(Board &board, bool is_black, int time_limi
                 break;
             }
             
+            const long long move_nodes =
+                nodes_searched.load(std::memory_order_relaxed) - nodes_before;
+            depth_candidates.push_back(RootCandidate{ move, score, move_nodes });
+
             if (is_black) {
                 if (score > current_best_score) {
                     current_best_score = score;
@@ -147,6 +158,7 @@ int MinimaxAgent::get_best_move_timed(Board &board, bool is_black, int time_limi
             best_move = current_best_move;
             best_score = current_best_score;
             completed_depth = depth;
+            last_root_candidates = std::move(depth_candidates);
             
             if (g_config.debug_output == true) {
                 std::cerr << "[info] Depth: " << depth 
@@ -165,7 +177,9 @@ int MinimaxAgent::get_best_move_timed(Board &board, bool is_black, int time_limi
                 break;
             }
         } else {
-            std::cerr << "[info] Depth " << depth << " aborted (time)" << std::endl;
+            if (g_config.debug_output == true) {
+                std::cerr << "[info] Depth " << depth << " aborted (time)" << std::endl;
+            }
             break;
         }
         
@@ -198,6 +212,7 @@ int MinimaxAgent::get_best_move_timed(Board &board, bool is_black, int time_limi
 
     
     time_limit = 0;  // reset
+    last_root_score = best_score;
     return best_move;
 }
 
@@ -413,7 +428,7 @@ int MinimaxAgent::get_best_move(Board &board, bool is_black)
                 << " | TT Size: " << tt.size()
                 << std::endl;
     }
-
+    last_root_score = best_score;
     return best_move;
 }
 

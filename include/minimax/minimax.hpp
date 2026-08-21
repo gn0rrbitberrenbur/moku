@@ -5,6 +5,14 @@
 #include <chrono>
 #include "../config.hpp"
 #include <atomic>
+#include <vector>
+
+// One root move with its search score and node count (used as visit proxy).
+struct RootCandidate {
+    int move;
+    float score;       // black-positive convention, same as evaluate_board
+    long long nodes;   // nodes searched under this move
+};
 
 class MinimaxAgent {
 public:
@@ -20,6 +28,12 @@ public:
     // setters and getters for max depth
     void set_max_depth(int depth) { if (depth > 0) max_depth = depth; }
     int get_max_depth() const { return max_depth; }
+
+    // getter for last root score
+    float get_last_root_score() const { return last_root_score; }
+
+    // root move scores of the last completed depth (MultiPV/policy source)
+    const std::vector<RootCandidate>& get_last_root_candidates() const { return last_root_candidates; }
     
     // statistics
     long long get_nodes_searched() const { return nodes_searched.load(std::memory_order_relaxed); }
@@ -43,6 +57,9 @@ private:
     
     float minimax(Board &board, int depth, float alpha, float beta, 
                   bool is_maximizing, uint64_t hash);
+
+    float last_root_score = 0.0f;
+    std::vector<RootCandidate> last_root_candidates;
     
     bool is_time_up();
 };
