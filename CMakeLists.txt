@@ -73,32 +73,6 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
         set_target_properties(moku PROPERTIES OUTPUT_NAME "moku")
     endif()
 
-    # build python bindings
-    FetchContent_Declare(
-        pybind11
-        GIT_REPOSITORY https://github.com/pybind/pybind11.git
-        GIT_TAG v2.13.6
-    )
-    FetchContent_MakeAvailable(pybind11)
-
-    pybind11_add_module(pymoku
-        py_bindings/bindings.cpp
-        src/board.cpp
-        src/minimax/minimax.cpp
-        src/minimax/evaluation.cpp
-        src/minimax/transposition_table.cpp
-        src/utils.cpp
-        src/benchmark.cpp
-    )
-
-    target_include_directories(pymoku PRIVATE ${MOKU_INCLUDE_DIRS})
-
-    install(TARGETS pymoku
-            COMPONENT python
-            LIBRARY DESTINATION "lib/python${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}/site-packages"
-            ARCHIVE DESTINATION "lib"
-            RUNTIME DESTINATION "bin")
-
     # build tests
     FetchContent_Declare(
         googletest
@@ -113,7 +87,7 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
 
     # Tests
     file(GLOB TEST_SOURCES "tests/*.cpp")
-    add_executable(run_tests 
+    add_executable(tests 
         ${TEST_SOURCES}
         src/board.cpp
         src/utils.cpp
@@ -123,12 +97,12 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
         src/engine.cpp
     )
 
-    target_include_directories(run_tests PRIVATE ${MOKU_INCLUDE_DIRS})
-    target_link_libraries(run_tests PRIVATE gtest gtest_main Threads::Threads)
+    target_include_directories(tests PRIVATE ${MOKU_INCLUDE_DIRS})
+    target_link_libraries(tests PRIVATE gtest gtest_main Threads::Threads)
 
     # Register tests
     include(GoogleTest)
-    gtest_discover_tests(run_tests
+    gtest_discover_tests(tests
         DISCOVERY_TIMEOUT 30
         )
 endif()

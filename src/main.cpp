@@ -29,8 +29,8 @@ void print_usage() {
     std::cout << "  --time, -t <ms>   Time limit in ms (default: 20000)" << std::endl;
     std::cout << "  --cores, -c <n>   Number of CPU cores to use (default: max available)" << std::endl;
     std::cout << "  --debug           Enable debug output" << std::endl;
-    std::cout << "  --version, -v     Show version information" << std::endl;
     std::cout << "  --benchmark, -b   Run benchmark tests" << std::endl;
+    std::cout << "  --version, -v     Show version information" << std::endl;
     std::cout << "  --help, -h        Show this help" << std::endl;
 }
 
