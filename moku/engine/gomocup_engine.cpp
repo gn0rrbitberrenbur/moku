@@ -1,4 +1,4 @@
-#include "engine.hpp"
+#include "gomocup_engine.hpp"
 
 #include "config.hpp"
 
@@ -8,7 +8,7 @@
 #include <vector>
 
 /**
- * This file implements the Engine class defined in ../include/engine.hpp.
+ * This file implements the Engine class defined in ../engine/gomocup_engine.hpp.
  * The Engine class manages the overall game flow in engine mode and interacts with the Board and AI
  * agents. The engine processes commands according to the Gomocup Protocol, see
  * https://plastovicka.github.io/protocl2en.htm
@@ -205,7 +205,7 @@ void Engine::cmd_turn(std::istringstream& iss)
                   << std::endl;
     }
 
-    if (pos < 0 || pos >= g_config.squares())
+    if (x < 0 || x >= g_config.board_size || y < 0 || y >= g_config.board_size)
     {
         std::cout << "ERROR coordinates out of bounds" << std::endl;
         std::cout.flush();

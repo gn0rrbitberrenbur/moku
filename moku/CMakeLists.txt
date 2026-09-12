@@ -84,7 +84,7 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     enable_testing()
 
     # Tests
-    file(GLOB TEST_SOURCES "tests/*.cpp")
+    file(GLOB TEST_SOURCES "tests/tests.cpp")
     add_executable(tests 
         ${TEST_SOURCES}
         game/tools/algebraic_to_index.cpp
@@ -99,9 +99,34 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     target_include_directories(tests PRIVATE ${MOKU_INCLUDE_DIRS})
     target_link_libraries(tests PRIVATE gtest gtest_main Threads::Threads)
 
+    file(GLOB TEST_SOURCES "tests/gomocup_protocol_test.cpp")
+
+    add_executable(gomocup_protocol_tests
+        ${TEST_SOURCES}
+        game/board.cpp
+        eval/evaluation.cpp
+        search/minimax.cpp
+        tt/transposition_table.cpp
+        engine/engine.cpp
+    )
+
+    target_include_directories(gomocup_protocol_tests PRIVATE
+    ${MOKU_INCLUDE_DIRS}
+    )
+
+    target_link_libraries(gomocup_protocol_tests PRIVATE
+        gtest
+        gtest_main
+        Threads::Threads
+    )
+
     # Register tests
     include(GoogleTest)
     gtest_discover_tests(tests
         DISCOVERY_TIMEOUT 30
         )
+    
+    gtest_discover_tests(gomocup_protocol_tests
+    DISCOVERY_TIMEOUT 30
+    )
 endif()
