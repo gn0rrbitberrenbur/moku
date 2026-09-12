@@ -48,27 +48,27 @@ target_compile_features(moku_core PUBLIC cxx_std_17)
 find_package(Threads REQUIRED)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-    # build excutable
-    add_executable(moku 
+    # build excutable (gomocup protocol)
+    add_executable(gomocup_moku 
         game/tools/algebraic_to_index.cpp
-        main.cpp
+        main_gomocup.cpp
         game/board.cpp
-        engine/engine.cpp
+        engine/gomocup_protocol/gomocup_engine.cpp
         benchmark/benchmark.cpp
         eval/evaluation.cpp
         search/minimax.cpp
         tt/transposition_table.cpp
     )
 
-    target_include_directories(moku PRIVATE ${MOKU_INCLUDE_DIRS})
+    target_include_directories(gomocup_moku PRIVATE ${MOKU_INCLUDE_DIRS})
 
     find_package(Threads REQUIRED)
-    target_link_libraries(moku PRIVATE Threads::Threads)
+    target_link_libraries(gomocup_moku PRIVATE Threads::Threads)
 
     if(WIN32)
-        set_target_properties(moku PROPERTIES OUTPUT_NAME "moku")
+        set_target_properties(gomocup_moku PROPERTIES OUTPUT_NAME "gomocup_moku")
     else()
-        set_target_properties(moku PROPERTIES OUTPUT_NAME "moku")
+        set_target_properties(gomocup_moku PROPERTIES OUTPUT_NAME "gomocup_moku")
     endif()
 
     # build tests
@@ -93,7 +93,7 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
         eval/evaluation.cpp
         search/minimax.cpp
         tt/transposition_table.cpp
-        engine/engine.cpp
+        engine/gomocup_protocol/gomocup_engine.cpp
     )
 
     target_include_directories(tests PRIVATE ${MOKU_INCLUDE_DIRS})
@@ -107,7 +107,7 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
         eval/evaluation.cpp
         search/minimax.cpp
         tt/transposition_table.cpp
-        engine/engine.cpp
+        engine/gomocup_protocol/gomocup_engine.cpp
     )
 
     target_include_directories(gomocup_protocol_tests PRIVATE

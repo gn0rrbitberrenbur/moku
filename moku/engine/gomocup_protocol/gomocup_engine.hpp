@@ -33,7 +33,8 @@ protected:
     void cmd_help();
 
 public:
-    Engine() = default;
+    Engine() : agent(g_config.max_depth) {}
+
     void run();
 };
 

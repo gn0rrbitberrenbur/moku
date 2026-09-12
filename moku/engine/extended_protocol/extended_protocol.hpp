@@ -1,5 +1,5 @@
-#ifndef ENGINE_HPP
-#define ENGINE_HPP
+#ifndef EXTENDED_PROTOCOL_HPP
+#define EXTENDED_PROTOCOL_HPP
 
 #include "config.hpp"
 #include "game/board.hpp"
@@ -33,7 +33,8 @@ protected:
     void cmd_help();
 
 public:
-    Engine() = default;
+    Engine() : agent(g_config.max_depth) {}
+
     void run();
 };
 

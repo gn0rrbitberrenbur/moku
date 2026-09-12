@@ -19,7 +19,7 @@ struct RootCandidate
 class MinimaxAgent
 {
 public:
-    MinimaxAgent(int depth = 6) : max_depth(depth) {}
+    MinimaxAgent(int depth) : max_depth(depth) {}
 
     // existing function
     int get_best_move(Board& board, bool is_black);
