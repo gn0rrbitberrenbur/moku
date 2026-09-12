@@ -1,9 +1,9 @@
-#include "../include/board.hpp"
-#include "../include/utils.hpp"
-#include "../include/minimax/evaluation.hpp"
-#include "../include/minimax/transposition_table.hpp"
-#include "../include/config.hpp"
-#include "../include/engine.hpp"
+#include "../moku/board.hpp"
+#include "../moku/utils.hpp"
+#include "../moku/evaluation.hpp"
+#include "../moku/transposition_table.hpp"
+#include "../moku/config.hpp"
+#include "../moku/engine.hpp"
 #include <gtest/gtest.h>
 
 // Test cases for the algebraic_to_index function

@@ -1,4 +1,4 @@
-#include "../../include/minimax/minimax.hpp"
+#include "minimax.hpp"
 #include <limits>
 #include <algorithm>
 #include <iostream>

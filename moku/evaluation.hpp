@@ -1,9 +1,9 @@
 #pragma once
-#include "../board.hpp"
+#include "board.hpp"
 #include <vector>
 #include <array>
 #include <bitset>
-#include "../config.hpp"
+#include "config.hpp"
 
 class Evaluator {
 public:

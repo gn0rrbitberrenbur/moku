@@ -2,7 +2,7 @@
 #define ENGINE_HPP
 
 #include "board.hpp"
-#include "minimax/minimax.hpp"
+#include "minimax.hpp"
 #include <string>
 #include <sstream>
 

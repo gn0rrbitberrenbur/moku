@@ -1,6 +1,6 @@
-#include "../../include/minimax/evaluation.hpp"
-#include "../../include/config.hpp"
-#include "../../include/board.hpp"
+#include "evaluation.hpp"
+#include "config.hpp"
+#include "board.hpp"
 #include <cmath>
 
 /**

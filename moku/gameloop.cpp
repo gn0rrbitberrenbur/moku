@@ -1,6 +1,6 @@
-#include "../include/gameloop.hpp"
-#include "../include/minimax/minimax.hpp"
-#include "../include/utils.hpp"
+#include "gameloop.hpp"
+#include "minimax.hpp"
+#include "utils.hpp"
 #include <iostream>
 #include <string>
 #include "config.hpp"

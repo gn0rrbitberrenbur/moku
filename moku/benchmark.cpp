@@ -1,8 +1,8 @@
-#include "../include/benchmark.hpp"
-#include "../include/board.hpp"
-#include "../include/minimax/minimax.hpp"
-#include "../include/config.hpp"
-#include "../include/utils.hpp"
+#include "benchmark.hpp"
+#include "board.hpp"
+#include "minimax.hpp"
+#include "config.hpp"
+#include "utils.hpp"
 
 /**
  * This function runs a benchmark for a given board position.

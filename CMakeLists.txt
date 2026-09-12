@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(Gomoku VERSION 1.0)
+project(moku VERSION 0.0.5)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -33,11 +33,11 @@ set(MOKU_INCLUDE_DIRS
 
 # build core library
 add_library(moku_core STATIC
-    src/board.cpp
-    src/utils.cpp
-    src/minimax/evaluation.cpp
-    src/minimax/minimax.cpp
-    src/minimax/transposition_table.cpp
+    moku/board.cpp
+    moku/utils.cpp
+    moku/evaluation.cpp
+    moku/minimax.cpp
+    moku/transposition_table.cpp
 )
 
 target_include_directories(moku_core PUBLIC
@@ -51,15 +51,15 @@ find_package(Threads REQUIRED)
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     # build excutable
     add_executable(moku 
-        src/main.cpp
-        src/board.cpp
-        src/gameloop.cpp
-        src/utils.cpp
-        src/engine.cpp
-        src/benchmark.cpp
-        src/minimax/evaluation.cpp
-        src/minimax/minimax.cpp
-        src/minimax/transposition_table.cpp
+        moku/main.cpp
+        moku/board.cpp
+        moku/gameloop.cpp
+        moku/utils.cpp
+        moku/engine.cpp
+        moku/benchmark.cpp
+        moku/evaluation.cpp
+        moku/minimax.cpp
+        moku/transposition_table.cpp
     )
 
     target_include_directories(moku PRIVATE ${MOKU_INCLUDE_DIRS})
@@ -89,12 +89,12 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     file(GLOB TEST_SOURCES "tests/*.cpp")
     add_executable(tests 
         ${TEST_SOURCES}
-        src/board.cpp
-        src/utils.cpp
-        src/minimax/evaluation.cpp
-        src/minimax/minimax.cpp
-        src/minimax/transposition_table.cpp
-        src/engine.cpp
+        moku/board.cpp
+        moku/utils.cpp
+        moku/evaluation.cpp
+        moku/minimax.cpp
+        moku/transposition_table.cpp
+        moku/engine.cpp
     )
 
     target_include_directories(tests PRIVATE ${MOKU_INCLUDE_DIRS})

@@ -1,4 +1,4 @@
-#include "../../include/minimax/transposition_table.hpp"
+#include "transposition_table.hpp"
 
 /**
  * This file implements the TranspositionTable class defined in ../include/agent/transposition_table.hpp, which

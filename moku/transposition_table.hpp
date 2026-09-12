@@ -1,9 +1,9 @@
 #pragma once
-#include "../board.hpp"
+#include "board.hpp"
 #include <unordered_map>
 #include <cstdint>
 #include <random>
-#include "../config.hpp"
+#include "config.hpp"
 
 struct TTEntry {
     uint64_t key = 0;

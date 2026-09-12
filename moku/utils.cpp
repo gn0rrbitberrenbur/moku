@@ -1,5 +1,5 @@
-#include "../include/utils.hpp"
-#include "../include/config.hpp"
+#include "utils.hpp"
+#include "config.hpp"
 #include <cctype>
 #include <string>
 #include <iostream>

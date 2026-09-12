@@ -1,9 +1,9 @@
-#include "../include/board.hpp"
-#include "../include/gameloop.hpp"
-#include "../include/engine.hpp"
-#include "../include/config.hpp"
-#include "../include/utils.hpp"
-#include "../include/benchmark.hpp"
+#include "board.hpp"
+#include "gameloop.hpp"
+#include "engine.hpp"
+#include "config.hpp"
+#include "utils.hpp"
+#include "benchmark.hpp"
 #include <iostream>
 #include <cstring>
 

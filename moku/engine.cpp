@@ -1,5 +1,5 @@
-#include "../include/engine.hpp"
-#include "../include/utils.hpp"
+#include "engine.hpp"
+#include "utils.hpp"
 #include <iostream>
 #include <sstream>
 #include <string>
