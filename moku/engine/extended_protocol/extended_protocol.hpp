@@ -32,6 +32,10 @@ protected:
     void cmd_display();
     void cmd_help();
 
+    // todo
+    void cmd_benchmark(std::istringstream& iss);
+    void cmd_analyze(std::istringstream& iss);
+
 public:
     Engine() : agent(g_config.max_depth) {}
 
