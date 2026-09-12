@@ -5,7 +5,7 @@ moku is an engine for the game of gomoku, supporting hottable pvp in one termina
 ### Build everything
 To build the excecutable and the tests run:
 ```
-mkdir build
+cd moku
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
 ```
@@ -13,7 +13,7 @@ cmake --build build --config Release
 ### Only build the excecutable
 To only build the excecutable run:
 ```
-mkdir build
+cd moku
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release --target moku
 ```
@@ -26,7 +26,7 @@ Then run:
 ### Only build the tests
 To only build the tests, run:
 ```
-mkdir build
+cd moku
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release --target tests
 ```

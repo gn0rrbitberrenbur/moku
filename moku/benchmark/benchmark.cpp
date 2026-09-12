@@ -1,8 +1,8 @@
+#include "game/tools/algebraic_to_index.hpp"
 #include "benchmark.hpp"
-#include "board.hpp"
-#include "minimax.hpp"
+#include "game/board.hpp"
+#include "search/minimax.hpp"
 #include "config.hpp"
-#include "utils.hpp"
 
 /**
  * This function runs a benchmark for a given board position.

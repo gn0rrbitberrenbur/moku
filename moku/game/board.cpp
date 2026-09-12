@@ -1,4 +1,4 @@
-#include "board.hpp"
+#include "game/board.hpp"
 
 /**
  * This file implements the Board class defined in ../include/board.hpp, which represents the game state of Gomoku.

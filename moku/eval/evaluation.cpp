@@ -1,6 +1,6 @@
 #include "evaluation.hpp"
 #include "config.hpp"
-#include "board.hpp"
+#include "../game/board.hpp"
 #include <cmath>
 
 /**

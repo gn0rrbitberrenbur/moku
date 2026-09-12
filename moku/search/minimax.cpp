@@ -1,4 +1,4 @@
-#include "minimax.hpp"
+#include "search/minimax.hpp"
 #include <limits>
 #include <algorithm>
 #include <iostream>

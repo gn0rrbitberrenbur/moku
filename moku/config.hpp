@@ -1,4 +1,6 @@
 #pragma once
+#include <string>
+#include <thread>
 #include <thread>
 
 struct GameConfig {

@@ -1,9 +1,9 @@
 #pragma once
-#include "board.hpp"
-#include "evaluation.hpp"
-#include "transposition_table.hpp"
-#include <chrono>
 #include "config.hpp"
+#include "game/board.hpp"
+#include "eval/evaluation.hpp"
+#include "tt/transposition_table.hpp"
+#include <chrono>
 #include <atomic>
 #include <vector>
 

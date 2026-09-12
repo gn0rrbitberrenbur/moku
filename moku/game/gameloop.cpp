@@ -1,6 +1,7 @@
+#include "game/tools/algebraic_to_index.hpp"
+
 #include "gameloop.hpp"
-#include "minimax.hpp"
-#include "utils.hpp"
+#include "search/minimax.hpp"
 #include <iostream>
 #include <string>
 #include "config.hpp"

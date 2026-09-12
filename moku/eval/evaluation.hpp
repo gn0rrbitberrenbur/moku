@@ -1,5 +1,5 @@
 #pragma once
-#include "board.hpp"
+#include "../game/board.hpp"
 #include <vector>
 #include <array>
 #include <bitset>

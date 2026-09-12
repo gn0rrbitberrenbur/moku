@@ -1,7 +1,7 @@
-#include "transposition_table.hpp"
+#include "tt/transposition_table.hpp"
 
 /**
- * This file implements the TranspositionTable class defined in ../include/agent/transposition_table.hpp, which
+ * This file implements the TranspositionTable class defined in ../tt/transposition_table.hpp, which
  * provides a hash-based caching mechanism for game states in a Gomoku AI. The class uses Zobrist hashing 
  * to efficiently compute and update hash values for board states, allowing for quick lookups and 
  * storage of evaluated positions.

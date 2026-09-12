@@ -1,23 +1,8 @@
-#include "utils.hpp"
+#include "algebraic_to_index.hpp"
 #include "config.hpp"
 #include <cctype>
 #include <string>
 #include <iostream>
-
-/**
- * This file implements the Utils class defined in ../include/utils.hpp.
- * The Utils class provides various utility functions for the Gomoku engine.
- */
-
-/**
- * Prints the version information of the Gomoku engine to the console.
- * @param None
- * @return void
- */
-void print_version()
-{
-    std::cout << "moku Version " << g_config.version << std::endl;
-}
 
 /**
  * Converts a move from algebraic notation (e.g., H8) to a board index (0-224).

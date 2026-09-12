@@ -1,8 +1,8 @@
 #ifndef ENGINE_HPP
 #define ENGINE_HPP
 
-#include "board.hpp"
-#include "minimax.hpp"
+#include "game/board.hpp"
+#include "search/minimax.hpp"
 #include <string>
 #include <sstream>
 

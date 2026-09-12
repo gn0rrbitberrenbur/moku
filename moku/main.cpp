@@ -1,9 +1,9 @@
-#include "board.hpp"
-#include "gameloop.hpp"
-#include "engine.hpp"
 #include "config.hpp"
-#include "utils.hpp"
-#include "benchmark.hpp"
+#include "game/board.hpp"
+#include "game/gameloop.hpp"
+#include "engine/engine.hpp"
+#include "helpers/helpers.hpp"
+#include "benchmark/benchmark.hpp"
 #include <iostream>
 #include <cstring>
 
@@ -11,28 +11,6 @@
  * This file contains the main function for the moku engine and serves as the entry point
  * of the program.
  */
-
-/**
- * This function prints the usage information for the program.
- * It is called by using the --help or -h command line options.
- * @param None
- * @return void
- */
-void print_usage() {
-    std::cout << "Usage: moku [options]" << std::endl;
-    std::cout << "Options:" << std::endl;
-    std::cout << "  --engine, -e      Run as engine (protocol mode)" << std::endl;
-    std::cout << "  --pvp, -p         Player vs Player" << std::endl;
-    std::cout << "  --minimax, -m     Player vs Minimax Agent (default)" << std::endl;
-    std::cout << "  --size, -s <n>    Board size (5-19, default: 15)" << std::endl;
-    std::cout << "  --depth, -d <n>   Max search depth (default: 12)" << std::endl;
-    std::cout << "  --time, -t <ms>   Time limit in ms (default: 20000)" << std::endl;
-    std::cout << "  --cores, -c <n>   Number of CPU cores to use (default: max available)" << std::endl;
-    std::cout << "  --debug           Enable debug output" << std::endl;
-    std::cout << "  --benchmark, -b   Run benchmark tests" << std::endl;
-    std::cout << "  --version, -v     Show version information" << std::endl;
-    std::cout << "  --help, -h        Show this help" << std::endl;
-}
 
 /**
  * The main function is the entry point of the program. 
@@ -71,7 +49,7 @@ int main(int argc, char *argv[])
             return run_benchmark(depth, time_ms);
         }
         else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
-            print_usage();
+            print_help();
             return 0;
         }
         // setting overwriting config parameters
