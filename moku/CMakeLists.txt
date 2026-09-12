@@ -53,7 +53,6 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
         main_gomocup.cpp
         game/board.cpp
         engine/gomocup_protocol/gomocup_engine.cpp
-        benchmark/benchmark.cpp
         eval/evaluation.cpp
         search/minimax.cpp
         tt/transposition_table.cpp
@@ -73,7 +72,7 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     # build excutable (extended protocol)
     add_executable(extended_moku 
         game/tools/algebraic_to_index.cpp
-        main_gomocup.cpp
+        main_extended_protocol.cpp
         game/board.cpp
         engine/extended_protocol/extended_protocol.cpp
         benchmark/benchmark.cpp
