@@ -28,10 +28,6 @@ protected:
     // Optional commands
     void cmd_takeback(std::istringstream& iss);
 
-    // Debug commands
-    void cmd_display();
-    void cmd_help();
-
 public:
     Engine() : agent(g_config.max_depth) {}
 

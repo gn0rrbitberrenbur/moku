@@ -1,5 +1,6 @@
+#include "extended_protocol.hpp"
+
 #include "config.hpp"
-#include "gomocup_engine.hpp"
 
 #include <iostream>
 #include <sstream>
@@ -7,16 +8,16 @@
 #include <vector>
 
 /**
- * This file implements the Engine class defined in ../engine/gomocup_engine.hpp.
+ * This file implements the Engine class defined in ../engine/extended_protocol.hpp.
  * The Engine class manages the overall game flow in engine mode and interacts with the Board and AI
- * agents. The engine processes commands according to the Gomocup Protocol, see
+ * agents. The engine processes commands according to the Extended Protocol, see
  * https://plastovicka.github.io/protocl2en.htm
  */
 
 /**
  * This function runs the main loop of the engine.
  * It continuously reads commands from standard input, processes them, and responds
- * according to the Gomocup Protocol.
+ * according to the Extended Protocol.
  * The loop continues until an END command is received or the input stream is closed.
  * @param None
  * @return void

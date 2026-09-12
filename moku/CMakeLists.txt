@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
+find_package(Threads REQUIRED)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
@@ -45,8 +46,6 @@ target_include_directories(moku_core PUBLIC
 
 target_compile_features(moku_core PUBLIC cxx_std_17)
 
-find_package(Threads REQUIRED)
-
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     # build excutable (gomocup protocol)
     add_executable(gomocup_moku 
@@ -69,6 +68,29 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
         set_target_properties(gomocup_moku PROPERTIES OUTPUT_NAME "gomocup_moku")
     else()
         set_target_properties(gomocup_moku PROPERTIES OUTPUT_NAME "gomocup_moku")
+    endif()
+
+    # build excutable (extended protocol)
+    add_executable(extended_moku 
+        game/tools/algebraic_to_index.cpp
+        main_gomocup.cpp
+        game/board.cpp
+        engine/extended_protocol/extended_protocol.cpp
+        benchmark/benchmark.cpp
+        eval/evaluation.cpp
+        search/minimax.cpp
+        tt/transposition_table.cpp
+    )
+
+    target_include_directories(extended_moku PRIVATE ${MOKU_INCLUDE_DIRS})
+
+    find_package(Threads REQUIRED)
+    target_link_libraries(extended_moku PRIVATE Threads::Threads)
+
+    if(WIN32)
+        set_target_properties(extended_moku PROPERTIES OUTPUT_NAME "extended_moku")
+    else()
+        set_target_properties(extended_moku PROPERTIES OUTPUT_NAME "extended_moku")
     endif()
 
     # build tests

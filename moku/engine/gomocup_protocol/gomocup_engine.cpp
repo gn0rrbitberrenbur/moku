@@ -8,7 +8,7 @@
 #include <vector>
 
 /**
- * This file implements the Engine class defined in ../engine/gomocup_engine.hpp.
+ * This file implements the Engine class defined in ../engine/gomocup_protocol.hpp.
  * The Engine class manages the overall game flow in engine mode and interacts with the Board and AI
  * agents. The engine processes commands according to the Gomocup Protocol, see
  * https://plastovicka.github.io/protocl2en.htm
@@ -87,15 +87,6 @@ void Engine::process_command(const std::string& line)
     else if (cmd_upper == "ABOUT")
     {
         cmd_about();
-    }
-    // debugging commands, not part of gomocup protocol
-    else if (cmd_upper == "DISPLAY" || cmd_upper == "D")
-    {
-        cmd_display();
-    }
-    else if (cmd_upper == "HELP")
-    {
-        cmd_help();
     }
     else
     {
@@ -430,41 +421,4 @@ void Engine::cmd_info(std::istringstream& iss)
 void Engine::cmd_about()
 {
     std::cout << "name=\"moku\", version=\"" << g_config.version << "\"" << std::endl;
-}
-
-/**
- * This function processes the DISPLAY command, which is a debug command to output the
- * current board state and some internal information.
- * DISPLAY - Debug command to display board and internal info
- * No response expected
- * This is not part of the Gomocup Protocol.
- * @param None
- * @return void
- */
-void Engine::cmd_display()
-{
-    board.output_board();
-    std::cout << "DEBUG Black stones: " << board.black.count() << std::endl;
-    std::cout << "DEBUG White stones: " << board.white.count() << std::endl;
-}
-
-/**
- * This function processes the DISPLAY command, which is a debug command to output the current
- * board state and some internal information.
- * DISPLAY - Debug command to display board and internal info
- * No response expected
- * This is not part of the Gomocup Protocol.
- * @param None
- * @return void
- */
-void Engine::cmd_help()
-{
-    std::cout << "MESSAGE Gomocup Protocol Commands:" << std::endl;
-    std::cout << "MESSAGE   START [size] - Initialize board" << std::endl;
-    std::cout << "MESSAGE   BEGIN - Play first move" << std::endl;
-    std::cout << "MESSAGE   TURN X,Y - Opponent move, respond with own" << std::endl;
-    std::cout << "MESSAGE   BOARD ... DONE - Set board state" << std::endl;
-    std::cout << "MESSAGE   INFO key value - Set parameters" << std::endl;
-    std::cout << "MESSAGE   ABOUT - Brain information" << std::endl;
-    std::cout << "MESSAGE   END - Terminate" << std::endl;
 }
