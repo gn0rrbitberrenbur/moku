@@ -32,7 +32,6 @@ set(MOKU_INCLUDE_DIRS
 
 # build core library
 add_library(moku_core STATIC
-    helpers/helpers.cpp
     game/tools/algebraic_to_index.cpp
     game/board.cpp
     eval/evaluation.cpp
@@ -51,7 +50,6 @@ find_package(Threads REQUIRED)
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     # build excutable
     add_executable(moku 
-        helpers/helpers.cpp
         game/tools/algebraic_to_index.cpp
         main.cpp
         game/board.cpp
@@ -89,7 +87,6 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     file(GLOB TEST_SOURCES "tests/*.cpp")
     add_executable(tests 
         ${TEST_SOURCES}
-        helpers/helpers.cpp
         game/tools/algebraic_to_index.cpp
         benchmark/benchmark.cpp
         game/board.cpp
