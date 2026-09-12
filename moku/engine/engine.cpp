@@ -154,7 +154,8 @@ void Engine::cmd_begin()
     }
     else
     {
-        int search_time = (timeout_turn > 0) ? std::max(100, timeout_turn - 500) : 5000;
+        int search_time =
+            (g_config.time_limit_ms > 0) ? std::max(100, g_config.time_limit_ms - 500) : 5000;
         best_move = agent.get_best_move_timed(board, true, search_time);
         if (best_move < 0)
         {
@@ -234,7 +235,8 @@ void Engine::cmd_turn(std::istringstream& iss)
     }
 
     bool my_color = !is_black;
-    int search_time = (timeout_turn > 0) ? std::max(100, timeout_turn - 500) : 5000;
+    int search_time =
+        (g_config.time_limit_ms > 0) ? std::max(100, g_config.time_limit_ms - 500) : 5000;
     int best_move = agent.get_best_move_timed_smp(board, my_color, search_time);
 
     if (best_move < 0)
@@ -312,7 +314,8 @@ void Engine::cmd_board()
     }
 
     bool is_black = (board.black.count() == board.white.count());
-    int search_time = (timeout_turn > 0) ? std::max(100, timeout_turn - 500) : 5000;
+    int search_time =
+        (g_config.time_limit_ms > 0) ? std::max(100, g_config.time_limit_ms - 500) : 5000;
     int best_move = agent.get_best_move_timed(board, is_black, search_time);
 
     if (best_move >= 0)
@@ -385,38 +388,38 @@ void Engine::cmd_info(std::istringstream& iss)
 
     if (key == "timeout_turn")
     {
-        iss >> timeout_turn;
+        iss >> g_config.time_limit_ms;
     }
     else if (key == "timeout_match")
     {
-        iss >> timeout_match;
+        iss >> g_config.timeout_match;
     }
     else if (key == "time_left")
     {
-        iss >> time_left;
+        iss >> g_config.time_left;
     }
     else if (key == "max_memory")
     {
-        iss >> max_memory;
+        iss >> g_config.max_memory;
     }
     else if (key == "game_type")
     {
-        iss >> game_type;
+        iss >> g_config.game_type;
     }
     else if (key == "rule")
     {
-        iss >> rule;
+        iss >> g_config.rule;
     }
     else if (key == "folder")
     {
-        iss >> folder;
+        iss >> g_config.folder;
     }
     else if (key == "depth")
     {
         int depth;
         if (iss >> depth && depth > 0 && depth <= 20)
         {
-            search_depth = depth;
+            g_config.max_depth = depth;
             agent.set_max_depth(depth);
             std::cerr << "[info] Search depth set to " << depth << std::endl;
         }

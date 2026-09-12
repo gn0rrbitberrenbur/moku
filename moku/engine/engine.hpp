@@ -1,6 +1,7 @@
 #ifndef ENGINE_HPP
 #define ENGINE_HPP
 
+#include "config.hpp"
 #include "game/board.hpp"
 #include "search/minimax.hpp"
 
@@ -13,18 +14,6 @@ protected:
     Board board;
     MinimaxAgent agent;
     bool running = true;
-
-    // Gomocup Protocol Info
-    int timeout_turn = 30000; // ms
-    int timeout_match = 0;
-    int time_left = 2147483647;
-    long long max_memory = 0;
-    int game_type = 0;
-    int rule = 0;
-    std::string folder;
-
-    // Engine settings
-    int search_depth = 6;
 
     void process_command(const std::string& line);
 

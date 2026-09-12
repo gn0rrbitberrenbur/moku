@@ -710,31 +710,31 @@ public:
     }
     int get_timeout_turn() const
     {
-        return timeout_turn;
+        return g_config.time_limit_ms;
     }
     int get_timeout_match() const
     {
-        return timeout_match;
+        return g_config.timeout_match;
     }
     int get_time_left() const
     {
-        return time_left;
+        return g_config.time_left;
     }
     long long get_max_memory() const
     {
-        return max_memory;
+        return g_config.max_memory;
     }
     int get_game_type() const
     {
-        return game_type;
+        return g_config.game_type;
     }
     int get_rule() const
     {
-        return rule;
+        return g_config.rule;
     }
     int get_search_depth() const
     {
-        return search_depth;
+        return g_config.max_depth;
     }
 
     bool is_running() const
@@ -1062,7 +1062,9 @@ TEST(EngineTest, InfoInvalidDepth)
 {
     TestEngine engine;
     engine.execute_command("START 15");
-    std::string output = engine.execute_command("INFO depth -1");
+
+    g_config.max_depth = 6;
+    engine.execute_command("INFO depth -1");
 
     EXPECT_EQ(engine.get_search_depth(), 6);
 }
