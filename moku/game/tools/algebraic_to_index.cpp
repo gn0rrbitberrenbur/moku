@@ -1,8 +1,10 @@
 #include "algebraic_to_index.hpp"
+
 #include "config.hpp"
+
 #include <cctype>
-#include <string>
 #include <iostream>
+#include <string>
 
 /**
  * Converts a move from algebraic notation (e.g., H8) to a board index (0-224).
@@ -13,23 +15,29 @@
  */
 int algebraic_to_index(const std::string& input, int size)
 {
-    if (input.length() < 2) return -1;
-    
-    if (size <= 0) size = g_config.board_size;
-    
+    if (input.length() < 2)
+        return -1;
+
+    if (size <= 0)
+        size = g_config.board_size;
+
     char col_char = std::toupper(input[0]);
     int col = col_char - 'A';
-    
+
     int row;
-    try {
+    try
+    {
         row = std::stoi(input.substr(1)) - 1;
-    } catch (...) {
+    }
+    catch (...)
+    {
         return -1;
     }
-    
-    if (col < 0 || col >= size || row < 0 || row >= size) {
+
+    if (col < 0 || col >= size || row < 0 || row >= size)
+    {
         return -1;
     }
-    
+
     return row * size + col;
 }

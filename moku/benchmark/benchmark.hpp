@@ -1,12 +1,13 @@
 #pragma once
-#include <string>
-#include <vector>
-#include <utility>
 #include <chrono>
-#include <iostream>
 #include <iomanip>
+#include <iostream>
+#include <string>
+#include <utility>
+#include <vector>
 
-struct BenchResult {
+struct BenchResult
+{
     std::string name;
     int reached_depth;
     long long nodes;
@@ -17,11 +18,8 @@ struct BenchResult {
     float score;
 };
 
-BenchResult run_position(const std::string &name,
-                         const std::vector<std::pair<std::string, bool>> &setup,
-                         bool side_to_move,
-                         int depth,
-                         int time_ms,
-                         int board_size = 15);
+BenchResult run_position(const std::string& name,
+                         const std::vector<std::pair<std::string, bool>>& setup, bool side_to_move,
+                         int depth, int time_ms, int board_size = 15);
 
 int run_benchmark(int depth, int time_ms);

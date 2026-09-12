@@ -1,22 +1,24 @@
 #pragma once
 #include <string>
 #include <thread>
-#include <thread>
 
-struct GameConfig {
+struct GameConfig
+{
     int board_size = 15;
     int max_depth = 12;
     int time_limit_ms = 20000;
-    
-    int squares() const { return board_size * board_size; }
+
+    int squares() const
+    {
+        return board_size * board_size;
+    }
 
     bool debug_output = false;
 
     std::string version = "0.0.5";
 
-    unsigned int cores = std::thread::hardware_concurrency() == 0
-                             ? 1
-                             : std::thread::hardware_concurrency();
+    unsigned int cores =
+        std::thread::hardware_concurrency() == 0 ? 1 : std::thread::hardware_concurrency();
 };
 
 // global instance
