@@ -55,7 +55,6 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
         game/tools/algebraic_to_index.cpp
         main.cpp
         game/board.cpp
-        game/gameloop.cpp
         engine/engine.cpp
         benchmark/benchmark.cpp
         eval/evaluation.cpp
