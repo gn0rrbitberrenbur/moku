@@ -1,4 +1,4 @@
-#include "engine/gomocup_engine.hpp"
+#include "engine/gomocup_protocol/gomocup_engine.hpp"
 
 /**
  * This file contains the main function for the moku engine and serves as the entry point

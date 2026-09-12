@@ -1,5 +1,5 @@
 #include "config.hpp"
-#include "engine/gomocup_engine.hpp"
+#include "engine/gomocup_protocol/gomocup_engine.hpp"
 #include "eval/evaluation.hpp"
 #include "game/board.hpp"
 #include "game/tools/algebraic_to_index.hpp"

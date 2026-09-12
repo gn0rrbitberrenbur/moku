@@ -1,5 +1,5 @@
 #include "config.hpp"
-#include "engine/gomocup_engine.hpp"
+#include "engine/gomocup_protocol/gomocup_engine.hpp"
 
 #include <gtest/gtest.h>
 #include <iostream>
