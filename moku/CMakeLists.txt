@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
+find_package(Threads REQUIRED)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
@@ -32,7 +33,6 @@ set(MOKU_INCLUDE_DIRS
 
 # build core library
 add_library(moku_core STATIC
-    helpers/helpers.cpp
     game/tools/algebraic_to_index.cpp
     game/board.cpp
     eval/evaluation.cpp
@@ -46,32 +46,50 @@ target_include_directories(moku_core PUBLIC
 
 target_compile_features(moku_core PUBLIC cxx_std_17)
 
-find_package(Threads REQUIRED)
-
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-    # build excutable
-    add_executable(moku 
-        helpers/helpers.cpp
+    # build excutable (gomocup protocol)
+    add_executable(gomocup_moku 
         game/tools/algebraic_to_index.cpp
-        main.cpp
+        main_gomocup.cpp
         game/board.cpp
-        game/gameloop.cpp
-        engine/engine.cpp
+        engine/gomocup_protocol/gomocup_engine.cpp
+        eval/evaluation.cpp
+        search/minimax.cpp
+        tt/transposition_table.cpp
+    )
+
+    target_include_directories(gomocup_moku PRIVATE ${MOKU_INCLUDE_DIRS})
+
+    find_package(Threads REQUIRED)
+    target_link_libraries(gomocup_moku PRIVATE Threads::Threads)
+
+    if(WIN32)
+        set_target_properties(gomocup_moku PROPERTIES OUTPUT_NAME "gomocup_moku")
+    else()
+        set_target_properties(gomocup_moku PROPERTIES OUTPUT_NAME "gomocup_moku")
+    endif()
+
+    # build excutable (extended protocol)
+    add_executable(extended_moku 
+        game/tools/algebraic_to_index.cpp
+        main_extended_protocol.cpp
+        game/board.cpp
+        engine/extended_protocol/extended_protocol.cpp
         benchmark/benchmark.cpp
         eval/evaluation.cpp
         search/minimax.cpp
         tt/transposition_table.cpp
     )
 
-    target_include_directories(moku PRIVATE ${MOKU_INCLUDE_DIRS})
+    target_include_directories(extended_moku PRIVATE ${MOKU_INCLUDE_DIRS})
 
     find_package(Threads REQUIRED)
-    target_link_libraries(moku PRIVATE Threads::Threads)
+    target_link_libraries(extended_moku PRIVATE Threads::Threads)
 
     if(WIN32)
-        set_target_properties(moku PROPERTIES OUTPUT_NAME "moku")
+        set_target_properties(extended_moku PROPERTIES OUTPUT_NAME "extended_moku")
     else()
-        set_target_properties(moku PROPERTIES OUTPUT_NAME "moku")
+        set_target_properties(extended_moku PROPERTIES OUTPUT_NAME "extended_moku")
     endif()
 
     # build tests
@@ -87,25 +105,49 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     enable_testing()
 
     # Tests
-    file(GLOB TEST_SOURCES "tests/*.cpp")
+    file(GLOB TEST_SOURCES "tests/tests.cpp")
     add_executable(tests 
         ${TEST_SOURCES}
-        helpers/helpers.cpp
         game/tools/algebraic_to_index.cpp
         benchmark/benchmark.cpp
         game/board.cpp
         eval/evaluation.cpp
         search/minimax.cpp
         tt/transposition_table.cpp
-        engine/engine.cpp
+        engine/gomocup_protocol/gomocup_engine.cpp
     )
 
     target_include_directories(tests PRIVATE ${MOKU_INCLUDE_DIRS})
     target_link_libraries(tests PRIVATE gtest gtest_main Threads::Threads)
+
+    file(GLOB TEST_SOURCES "tests/gomocup_protocol_test.cpp")
+
+    add_executable(gomocup_protocol_tests
+        ${TEST_SOURCES}
+        game/board.cpp
+        eval/evaluation.cpp
+        search/minimax.cpp
+        tt/transposition_table.cpp
+        engine/gomocup_protocol/gomocup_engine.cpp
+    )
+
+    target_include_directories(gomocup_protocol_tests PRIVATE
+    ${MOKU_INCLUDE_DIRS}
+    )
+
+    target_link_libraries(gomocup_protocol_tests PRIVATE
+        gtest
+        gtest_main
+        Threads::Threads
+    )
 
     # Register tests
     include(GoogleTest)
     gtest_discover_tests(tests
         DISCOVERY_TIMEOUT 30
         )
+    
+    gtest_discover_tests(gomocup_protocol_tests
+    DISCOVERY_TIMEOUT 30
+    )
 endif()

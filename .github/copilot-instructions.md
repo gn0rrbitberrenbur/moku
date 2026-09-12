@@ -9,8 +9,7 @@ The repository contains the CMake project in the `moku/` directory:
 - `moku/CMakeLists.txt` - CMake build configuration
 - `moku/config.hpp` - global configuration and board settings
 - `moku/main.cpp` - application entry point
-- `moku/helpers/` - helper functions
-- `moku/game/` - board and game logic
+- `moku/game/` - board logic
 - `moku/game/tools/` - game-related conversion and utility functions
 - `moku/engine/` - Gomoku protocol engine
 - `moku/eval/` - board evaluation
