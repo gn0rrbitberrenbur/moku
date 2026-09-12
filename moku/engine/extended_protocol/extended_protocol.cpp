@@ -1,5 +1,6 @@
 #include "extended_protocol.hpp"
 
+#include "../../benchmark/benchmark.hpp"
 #include "config.hpp"
 
 #include <iostream>
@@ -96,6 +97,10 @@ void Engine::process_command(const std::string& line)
     else if (cmd_upper == "HELP")
     {
         cmd_help();
+    }
+    else if (cmd_upper == "BENCHMARK")
+    {
+        cmd_benchmark(iss);
     }
     else
     {
@@ -467,4 +472,25 @@ void Engine::cmd_help()
     std::cout << "MESSAGE   INFO key value - Set parameters" << std::endl;
     std::cout << "MESSAGE   ABOUT - Brain information" << std::endl;
     std::cout << "MESSAGE   END - Terminate" << std::endl;
+}
+
+/**
+ * This function processes the BENCHMARK command, which is a debug command to run a benchmark of the
+ * AI search. BENCHMARK depth time_limit_ms - Run benchmark with given depth and time limit No
+ * response expected
+ */
+void Engine::cmd_benchmark(std::istringstream& iss)
+{
+    int depth;
+    int time_limit_ms;
+
+    if (!(iss >> depth >> time_limit_ms) || depth <= 0 || time_limit_ms < 0)
+    {
+        std::cout << "ERROR invalid arguments for BENCHMARK" << std::endl;
+        std::cout.flush();
+        return;
+    }
+
+    run_benchmark(depth, time_limit_ms);
+    std::cout.flush();
 }

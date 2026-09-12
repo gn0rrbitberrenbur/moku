@@ -3,64 +3,97 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
+  workflow_dispatch:
 
 jobs:
   build:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-    
+
     runs-on: ${{ matrix.os }}
-    
+
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Install dependencies (Linux)
+
+      - name: Install dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y cmake build-essential
-      
-      - name: Setup MSVC (Windows)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential
+
+      - name: Setup MSVC
         if: runner.os == 'Windows'
         uses: microsoft/setup-msbuild@v2
-      
+
       - name: Configure CMake
         working-directory: moku
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release
-      
-      - name: Build
+
+      - name: Build Linux
+        if: runner.os == 'Linux'
         working-directory: moku
-        run: cmake --build build --config Release --target moku
-      
-      - name: Upload Linux artifact
+        run: |
+          cmake --build build --config Release --target gomocup_moku
+          cmake --build build --config Release --target extended_moku
+
+      - name: Build Windows
+        if: runner.os == 'Windows'
+        working-directory: moku
+        run: |
+          cmake --build build --config Release --target gomocup_moku
+          cmake --build build --config Release --target extended_moku
+
+      - name: Prepare Linux artifacts
+        if: runner.os == 'Linux'
+        working-directory: moku
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p release
+          cp build/gomocup_moku "release/gomocup_moku_${VERSION}"
+          cp build/extended_moku "release/extended_moku_${VERSION}"
+
+      - name: Prepare Windows artifacts
+        if: runner.os == 'Windows'
+        working-directory: moku
+        shell: pwsh
+        run: |
+          $version = "${env:GITHUB_REF_NAME}".TrimStart("v")
+          New-Item -ItemType Directory -Force -Path release
+          Copy-Item "build/Release/gomocup_moku.exe" "release/gomocup_moku_${version}.exe"
+          Copy-Item "build/Release/extended_moku.exe" "release/extended_moku_${version}.exe"
+
+      - name: Upload Linux artifacts
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
           name: moku-linux
-          path: moku/build/moku
-      
-      - name: Upload Windows artifact
+          path: moku/release/*
+
+      - name: Upload Windows artifacts
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: moku-windows
-          path: moku/build/Release/moku.exe
-  
+          path: moku/release/*
+
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/download-artifact@v4
-      
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
           files: |
-            moku-linux/moku
-            moku-windows/moku.exe
+            artifacts/moku-linux/*
+            artifacts/moku-windows/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
