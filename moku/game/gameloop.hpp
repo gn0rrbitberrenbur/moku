@@ -1,6 +1,6 @@
 #pragma once
-#include "board.hpp"
-#include "utils.hpp"
+#include "game/board.hpp"
+
 #include <iostream>
 #include <string>
 

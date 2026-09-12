@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(Gomoku VERSION 1.0)
+project(moku VERSION 0.0.5)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -27,17 +27,17 @@ else()
 endif()
 
 set(MOKU_INCLUDE_DIRS
-    ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/include/agents
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 # build core library
 add_library(moku_core STATIC
-    src/board.cpp
-    src/utils.cpp
-    src/minimax/evaluation.cpp
-    src/minimax/minimax.cpp
-    src/minimax/transposition_table.cpp
+    helpers/helpers.cpp
+    game/tools/algebraic_to_index.cpp
+    game/board.cpp
+    eval/evaluation.cpp
+    search/minimax.cpp
+    tt/transposition_table.cpp
 )
 
 target_include_directories(moku_core PUBLIC
@@ -51,15 +51,16 @@ find_package(Threads REQUIRED)
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     # build excutable
     add_executable(moku 
-        src/main.cpp
-        src/board.cpp
-        src/gameloop.cpp
-        src/utils.cpp
-        src/engine.cpp
-        src/benchmark.cpp
-        src/minimax/evaluation.cpp
-        src/minimax/minimax.cpp
-        src/minimax/transposition_table.cpp
+        helpers/helpers.cpp
+        game/tools/algebraic_to_index.cpp
+        main.cpp
+        game/board.cpp
+        game/gameloop.cpp
+        engine/engine.cpp
+        benchmark/benchmark.cpp
+        eval/evaluation.cpp
+        search/minimax.cpp
+        tt/transposition_table.cpp
     )
 
     target_include_directories(moku PRIVATE ${MOKU_INCLUDE_DIRS})
@@ -89,12 +90,14 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     file(GLOB TEST_SOURCES "tests/*.cpp")
     add_executable(tests 
         ${TEST_SOURCES}
-        src/board.cpp
-        src/utils.cpp
-        src/minimax/evaluation.cpp
-        src/minimax/minimax.cpp
-        src/minimax/transposition_table.cpp
-        src/engine.cpp
+        helpers/helpers.cpp
+        game/tools/algebraic_to_index.cpp
+        benchmark/benchmark.cpp
+        game/board.cpp
+        eval/evaluation.cpp
+        search/minimax.cpp
+        tt/transposition_table.cpp
+        engine/engine.cpp
     )
 
     target_include_directories(tests PRIVATE ${MOKU_INCLUDE_DIRS})

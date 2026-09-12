@@ -1,49 +1,55 @@
-#include "../../include/minimax/evaluation.hpp"
-#include "../../include/config.hpp"
-#include "../../include/board.hpp"
+#include "evaluation.hpp"
+
+#include "../game/board.hpp"
+#include "config.hpp"
+
 #include <cmath>
 
 /**
- * This file implements the Evaluation class defined in ../include/agent/evaluation.hpp, which takes 
+ * This file implements the Evaluation class defined in ../include/agent/evaluation.hpp, which takes
  * a boardstate and evaluates it.
- * The evaluation function considers various factors such as the number of pieces in a row, open ends, 
- * and positional advantages 
- * to calculate a score for the board state.
+ * The evaluation function considers various factors such as the number of pieces in a row, open
+ * ends, and positional advantages to calculate a score for the board state.
  */
 
-// lookup tables that store precomputed values for position scores and pattern scores to speed up evaluation.
-namespace {
-    int position_scores[400];
-    int cached_table_size = -1;
+// lookup tables that store precomputed values for position scores and pattern scores to speed up
+// evaluation.
+namespace
+{
+int position_scores[400];
+int cached_table_size = -1;
 
-    constexpr int DX[] = {1, 0, 1, 1};
-    constexpr int DY[] = {0, 1, 1, -1};
+constexpr int DX[] = {1, 0, 1, 1};
+constexpr int DY[] = {0, 1, 1, -1};
 
-    // score of a gap-aware 5-cell window by number of own stones it contains
-    constexpr int WINDOW_SCORE[6] = {0, 1, 10, 120, 1200, 100000};
+// score of a gap-aware 5-cell window by number of own stones it contains
+constexpr int WINDOW_SCORE[6] = {0, 1, 10, 120, 1200, 100000};
 
-    void init_tables(int size) {
-        if (cached_table_size == size) return;
-        int center = size / 2;
-        for (int pos = 0; pos < size * size; pos++) {
-            int row = pos / size;
-            int col = pos % size;
-            int dist = std::abs(row - center) + std::abs(col - center);
-            position_scores[pos] = std::max(0, size - dist);
-        }
-        cached_table_size = size;
+void init_tables(int size)
+{
+    if (cached_table_size == size)
+        return;
+    int center = size / 2;
+    for (int pos = 0; pos < size * size; pos++)
+    {
+        int row = pos / size;
+        int col = pos % size;
+        int dist = std::abs(row - center) + std::abs(col - center);
+        position_scores[pos] = std::max(0, size - dist);
     }
+    cached_table_size = size;
 }
+} // namespace
 
 // pattern scores based on count of pieces in a row and number of open ends
 static constexpr int PATTERN_SCORES[6][3] = {
     // [count][open_ends] - open_ends: 0, 1, 2
-    {0, 0, 0},           // count = 0
-    {0, 0, 3},           // count = 1
-    {2, 10, 50},         // count = 2
-    {20, 200, 2000},     // count = 3
-    {500, 5000, 50000},  // count = 4
-    {100000, 100000, 100000}  // count >= 5
+    {0, 0, 0},               // count = 0
+    {0, 0, 3},               // count = 1
+    {2, 10, 50},             // count = 2
+    {20, 200, 2000},         // count = 3
+    {500, 5000, 50000},      // count = 4
+    {100000, 100000, 100000} // count >= 5
 };
 
 /**
@@ -53,12 +59,13 @@ static constexpr int PATTERN_SCORES[6][3] = {
  * @param open_ends ; int ; the number of open ends (0, 1, or 2)
  * @return int ; the score for the given pattern based on precomputed values in PATTERN_SCORES
  */
-inline int fast_score_pattern(int count, int open_ends) {
+inline int fast_score_pattern(int count, int open_ends)
+{
     return PATTERN_SCORES[std::min(count, 5)][std::min(open_ends, 2)];
 }
 
 /**
- * This function performs a fast analysis of a line on the board starting from a given 
+ * This function performs a fast analysis of a line on the board starting from a given
  * position and moving in a specified direction.
  * It counts the number of pieces in a row for the specified color and the number of open ends.
  * @param board ; const Board& ; the current state of the board
@@ -66,26 +73,31 @@ inline int fast_score_pattern(int count, int open_ends) {
  * @param dx ; int ; the x-direction to move (e.g., 1 for horizontal, 0 for vertical)
  * @param dy ; int ; the y-direction to move (e.g., 1 for vertical, 0 for horizontal)
  * @param is_black ; bool ; true if analyzing for black pieces, false for white pieces
- * @return LineInfo ; a struct containing the count of pieces in a row and the number of 
+ * @return LineInfo ; a struct containing the count of pieces in a row and the number of
  * open ends for the analyzed line
  */
-inline Evaluator::LineInfo Evaluator::analyze_line_fast(
-    const Board &board, int pos, int dx, int dy, bool is_black) const {
-    
+inline Evaluator::LineInfo Evaluator::analyze_line_fast(const Board& board, int pos, int dx, int dy,
+                                                        bool is_black) const
+{
+
     const int SIZE = g_config.board_size;
-    const auto &own = is_black ? board.black : board.white;
-    const auto &opp = is_black ? board.white : board.black;
-    
+    const auto& own = is_black ? board.black : board.white;
+    const auto& opp = is_black ? board.white : board.black;
+
     int row = pos / SIZE;
     int col = pos % SIZE;
     int count = 0;
     int open_ends = 0;
-    
-    for (int i = 0; i < 5; i++) {
-        if (row < 0 || row >= SIZE || col < 0 || col >= SIZE) break;
+
+    for (int i = 0; i < 5; i++)
+    {
+        if (row < 0 || row >= SIZE || col < 0 || col >= SIZE)
+            break;
         int p = row * SIZE + col;
-        if (!own[p]) {
-            if (!opp[p]) open_ends++;
+        if (!own[p])
+        {
+            if (!opp[p])
+                open_ends++;
             break;
         }
         count++;
@@ -94,9 +106,11 @@ inline Evaluator::LineInfo Evaluator::analyze_line_fast(
     }
     int back_row = (pos / SIZE) - dy;
     int back_col = (pos % SIZE) - dx;
-    if (back_row >= 0 && back_row < SIZE && back_col >= 0 && back_col < SIZE) {
+    if (back_row >= 0 && back_row < SIZE && back_col >= 0 && back_col < SIZE)
+    {
         int p = back_row * SIZE + back_col;
-        if (!opp[p] && !own[p]) open_ends++;
+        if (!opp[p] && !own[p])
+            open_ends++;
     }
     return {count, open_ends};
 }
@@ -114,12 +128,13 @@ inline Evaluator::LineInfo Evaluator::analyze_line_fast(
  * @param is_black ; bool ; true for black, false for white
  * @return LineEval ; window score, leading consecutive count and open-end count
  */
-inline Evaluator::LineEval Evaluator::scan_line(
-    const Board &board, int pos, int dx, int dy, bool is_black) const {
+inline Evaluator::LineEval Evaluator::scan_line(const Board& board, int pos, int dx, int dy,
+                                                bool is_black) const
+{
 
     const int SIZE = g_config.board_size;
-    const auto &own = is_black ? board.black : board.white;
-    const auto &opp = is_black ? board.white : board.black;
+    const auto& own = is_black ? board.black : board.white;
+    const auto& opp = is_black ? board.white : board.black;
 
     const int row = pos / SIZE;
     const int col = pos % SIZE;
@@ -131,13 +146,29 @@ inline Evaluator::LineEval Evaluator::scan_line(
     bool window_fits = true;
 
     int r = row, c = col;
-    for (int i = 0; i < 5; i++) {
-        if (r < 0 || r >= SIZE || c < 0 || c >= SIZE) { window_fits = false; break; }
+    for (int i = 0; i < 5; i++)
+    {
+        if (r < 0 || r >= SIZE || c < 0 || c >= SIZE)
+        {
+            window_fits = false;
+            break;
+        }
         const int p = r * SIZE + c;
-        if (opp[p]) { opp_in_window = true; break; }
-        if (own[p]) { own_count++; if (consec_run) consec++; }
-        else consec_run = false;
-        r += dy; c += dx;
+        if (opp[p])
+        {
+            opp_in_window = true;
+            break;
+        }
+        if (own[p])
+        {
+            own_count++;
+            if (consec_run)
+                consec++;
+        }
+        else
+            consec_run = false;
+        r += dy;
+        c += dx;
     }
 
     int window_score = 0;
@@ -146,32 +177,38 @@ inline Evaluator::LineEval Evaluator::scan_line(
 
     int open_ends = 0;
     const int br = row - dy, bc = col - dx;
-    if (br >= 0 && br < SIZE && bc >= 0 && bc < SIZE) {
+    if (br >= 0 && br < SIZE && bc >= 0 && bc < SIZE)
+    {
         const int p = br * SIZE + bc;
-        if (!opp[p] && !own[p]) open_ends++;
+        if (!opp[p] && !own[p])
+            open_ends++;
     }
     const int fr = row + dy * consec, fc = col + dx * consec;
-    if (fr >= 0 && fr < SIZE && fc >= 0 && fc < SIZE) {
+    if (fr >= 0 && fr < SIZE && fc >= 0 && fc < SIZE)
+    {
         const int p = fr * SIZE + fc;
-        if (!opp[p] && !own[p]) open_ends++;
+        if (!opp[p] && !own[p])
+            open_ends++;
     }
 
     return {window_score, consec, open_ends};
 }
 
 /**
- * This function evaluates the current state of the board and returns a score representing how favorable 
- * the position is for the black player.
- * A positive score indicates an advantage for black, while a negative score indicates an advantage for white
- * The evaluation considers the following factors:
+ * This function evaluates the current state of the board and returns a score representing how
+ * favorable the position is for the black player. A positive score indicates an advantage for
+ * black, while a negative score indicates an advantage for white The evaluation considers the
+ * following factors:
  * - Winning conditions (five in a row)
  * - Threats (open threes and fours)
  * - Positional advantages (proximity to the center)
  * @param board ; const Board& ; the current state of the board to be evaluated
- * @return float ; a score representing the favorability of the board state for the black player, where 
- * higher values indicate a better position for black and lower values indicate a better position for white
+ * @return float ; a score representing the favorability of the board state for the black player,
+ * where higher values indicate a better position for black and lower values indicate a better
+ * position for white
  */
-float Evaluator::evaluate_board(const Board& board) const {
+float Evaluator::evaluate_board(const Board& board) const
+{
     const int SIZE = g_config.board_size;
     const int SQUARES = SIZE * SIZE;
 
@@ -182,44 +219,58 @@ float Evaluator::evaluate_board(const Board& board) const {
     int black_winning = 0, white_winning = 0;
 
     // single pass over occupied squares; each run scored once via one line scan
-    for (int pos = 0; pos < SQUARES; pos++) {
+    for (int pos = 0; pos < SQUARES; pos++)
+    {
         const bool blk = board.black[pos];
         const bool wht = board.white[pos];
-        if (!blk && !wht) continue;
+        if (!blk && !wht)
+            continue;
 
         const bool is_black = blk;
         const int sign = is_black ? 1 : -1;
-        const auto &own = is_black ? board.black : board.white;
+        const auto& own = is_black ? board.black : board.white;
 
         score += sign * position_scores[pos];
 
         const int row = pos / SIZE;
         const int col = pos % SIZE;
 
-        for (int d = 0; d < 4; d++) {
+        for (int d = 0; d < 4; d++)
+        {
             const int dx = DX[d];
             const int dy = DY[d];
 
             // only score from the start of a solid run to avoid recounting it
             const int prev_row = row - dy;
             const int prev_col = col - dx;
-            if (prev_row >= 0 && prev_row < SIZE &&
-                prev_col >= 0 && prev_col < SIZE &&
-                own[prev_row * SIZE + prev_col]) continue;
+            if (prev_row >= 0 && prev_row < SIZE && prev_col >= 0 && prev_col < SIZE &&
+                own[prev_row * SIZE + prev_col])
+                continue;
 
             const LineEval le = scan_line(board, pos, dx, dy, is_black);
             score += sign * le.window_score;
 
-            if (le.consec >= 4 && le.open_ends >= 1) {
-                if (is_black) black_winning++; else white_winning++;
-            } else if (le.consec >= 3 && le.open_ends >= 1) {
-                if (is_black) black_threats++; else white_threats++;
+            if (le.consec >= 4 && le.open_ends >= 1)
+            {
+                if (is_black)
+                    black_winning++;
+                else
+                    white_winning++;
+            }
+            else if (le.consec >= 3 && le.open_ends >= 1)
+            {
+                if (is_black)
+                    black_threats++;
+                else
+                    white_threats++;
             }
         }
     }
 
-    if (black_winning) score += 30000 * black_winning;
-    if (white_winning) score -= 30000 * white_winning;
+    if (black_winning)
+        score += 30000 * black_winning;
+    if (white_winning)
+        score -= 30000 * white_winning;
 
     // tempo bonus, scaled so it is not drowned out by pattern scores
     score += 50 * (black_threats - white_threats);
@@ -234,7 +285,8 @@ float Evaluator::evaluate_board(const Board& board) const {
  * @param black_to_move ; bool ; true if Black is to move, false for White
  * @return float ; positive favours the side to move
  */
-float Evaluator::evaluate_board_stm(const Board& board, bool black_to_move) const {
+float Evaluator::evaluate_board_stm(const Board& board, bool black_to_move) const
+{
     const float e = evaluate_board(board);
     return black_to_move ? e : -e;
 }
@@ -251,11 +303,12 @@ float Evaluator::evaluate_board_stm(const Board& board, bool black_to_move) cons
  * @param is_black ; bool ; true for black, false for white
  * @return bool ; true if the line is blocked on both ends (dead), false otherwise
  */
-bool Evaluator::is_line_dead(const Board &board, int pos, int dx, int dy,
-                                    int count, bool is_black) const {
+bool Evaluator::is_line_dead(const Board& board, int pos, int dx, int dy, int count,
+                             bool is_black) const
+{
     const int SIZE = g_config.board_size;
-    const auto &own = is_black ? board.black : board.white;
-    const auto &opp = is_black ? board.white : board.black;
+    const auto& own = is_black ? board.black : board.white;
+    const auto& opp = is_black ? board.white : board.black;
 
     int row = pos / SIZE;
     int col = pos % SIZE;
@@ -263,20 +316,24 @@ bool Evaluator::is_line_dead(const Board &board, int pos, int dx, int dy,
     // cell directly BEFORE the run
     int br = row - dy;
     int bc = col - dx;
-    bool front_blocked = true;  // edge counts as blocked
-    if (br >= 0 && br < SIZE && bc >= 0 && bc < SIZE) {
+    bool front_blocked = true; // edge counts as blocked
+    if (br >= 0 && br < SIZE && bc >= 0 && bc < SIZE)
+    {
         int p = br * SIZE + bc;
         // open if empty and not occupied by opponent
-        if (!opp[p] && !own[p]) front_blocked = false;
+        if (!opp[p] && !own[p])
+            front_blocked = false;
     }
 
     // cell directly AFTER the run
     int ar = row + dy * count;
     int ac = col + dx * count;
     bool back_blocked = true;
-    if (ar >= 0 && ar < SIZE && ac >= 0 && ac < SIZE) {
+    if (ar >= 0 && ar < SIZE && ac >= 0 && ac < SIZE)
+    {
         int p = ar * SIZE + ac;
-        if (!opp[p] && !own[p]) back_blocked = false;
+        if (!opp[p] && !own[p])
+            back_blocked = false;
     }
 
     return front_blocked && back_blocked;
@@ -294,23 +351,27 @@ bool Evaluator::is_line_dead(const Board &board, int pos, int dx, int dy,
  * @param is_black ; bool ; true for black, false for white
  * @return int ; the score contribution of this window (0 if blocked or empty)
  */
-int Evaluator::score_window(const Board &board, int pos, int dx, int dy,
-                                   bool is_black) const {
+int Evaluator::score_window(const Board& board, int pos, int dx, int dy, bool is_black) const
+{
     const int SIZE = g_config.board_size;
-    const auto &own = is_black ? board.black : board.white;
-    const auto &opp = is_black ? board.white : board.black;
+    const auto& own = is_black ? board.black : board.white;
+    const auto& opp = is_black ? board.white : board.black;
 
     int row = pos / SIZE;
     int col = pos % SIZE;
 
     int own_count = 0;
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 5; i++)
+    {
         // window must fit fully on the board to be a potential five
-        if (row < 0 || row >= SIZE || col < 0 || col >= SIZE) return 0;
+        if (row < 0 || row >= SIZE || col < 0 || col >= SIZE)
+            return 0;
         int p = row * SIZE + col;
-        if (opp[p]) return 0;       // opponent stone -> dead window
-        if (own[p]) own_count++;
+        if (opp[p])
+            return 0; // opponent stone -> dead window
+        if (own[p])
+            own_count++;
         row += dy;
         col += dx;
     }
@@ -321,152 +382,190 @@ int Evaluator::score_window(const Board &board, int pos, int dx, int dy,
 }
 
 /**
- * This function calculates the positional score for a given position on the board 
+ * This function calculates the positional score for a given position on the board
  * based on precomputed values in the position_scores table.
- * The positional score is higher for positions closer to the center of the board, 
+ * The positional score is higher for positions closer to the center of the board,
  * which are generally more advantageous in Gomoku.
  * @param pos ; int ; the position on the board (0-224) for which to calculate the positional score
- * @return int ; the positional score for the given position, where higher values indicate 
- * a more favorable position (closer to the center) and lower values indicate a 
+ * @return int ; the positional score for the given position, where higher values indicate
+ * a more favorable position (closer to the center) and lower values indicate a
  * less favorable position (closer to the edges)
  */
-int Evaluator::position_score(int pos) const {
+int Evaluator::position_score(int pos) const
+{
     init_tables(g_config.board_size);
     return position_scores[pos];
 }
 
 /**
- * This function calculates the priority of a potential move based on its positional score 
+ * This function calculates the priority of a potential move based on its positional score
  * and tactical considerations.
- * The priority is higher for moves that are closer to the center of the board and for 
+ * The priority is higher for moves that are closer to the center of the board and for
  * moves that create or block threats (e.g., open threes and fours).
  * @param board ; const Board& ; the current state of the board
  * @param move ; int ; the position of the potential move to be evaluated
- * @param is_black ; bool ; true if evaluating the move for the black player, false for the white player
+ * @param is_black ; bool ; true if evaluating the move for the black player, false for the white
+ * player
  * @return int ; a priority score for the given move, where higher values indicate
  * a more favorable move based on positional and tactical factors
  */
-int Evaluator::move_priority(const Board& board, int move, bool is_black) const {
+int Evaluator::move_priority(const Board& board, int move, bool is_black) const
+{
     const int SIZE = g_config.board_size;
     init_tables(SIZE);
-    
+
     int priority = 0;
-    
+
     // 1. position-score (favor center)
     priority += position_scores[move];
-    
+
     // 2. tactical considerations: check if this move creates or blocks threats
     int row = move / SIZE;
     int col = move % SIZE;
-    
+
     const auto& own = is_black ? board.black : board.white;
     const auto& opp = is_black ? board.white : board.black;
-    
-    for (int d = 0; d < 4; d++) {
+
+    for (int d = 0; d < 4; d++)
+    {
         int dx = DX[d];
         int dy = DY[d];
-        
+
         int own_count = 0;
         int opp_count = 0;
         int own_open = 0;
         int opp_open = 0;
-        
+
         // count own pieces in both directions
-        for (int dir = -1; dir <= 1; dir += 2) {
-            for (int i = 1; i <= 4; i++) {
+        for (int dir = -1; dir <= 1; dir += 2)
+        {
+            for (int i = 1; i <= 4; i++)
+            {
                 int nr = row + dy * i * dir;
                 int nc = col + dx * i * dir;
-                if (nr < 0 || nr >= SIZE || nc < 0 || nc >= SIZE) break;
-                int np = nr * SIZE + nc;
-                
-                if (own[np]) {
-                    own_count++;
-                } else if (opp[np]) {
+                if (nr < 0 || nr >= SIZE || nc < 0 || nc >= SIZE)
                     break;
-                } else {
+                int np = nr * SIZE + nc;
+
+                if (own[np])
+                {
+                    own_count++;
+                }
+                else if (opp[np])
+                {
+                    break;
+                }
+                else
+                {
                     own_open++;
                     break;
                 }
             }
         }
-        
+
         // count opponent pieces in both directions
-        for (int dir = -1; dir <= 1; dir += 2) {
-            for (int i = 1; i <= 4; i++) {
+        for (int dir = -1; dir <= 1; dir += 2)
+        {
+            for (int i = 1; i <= 4; i++)
+            {
                 int nr = row + dy * i * dir;
                 int nc = col + dx * i * dir;
-                if (nr < 0 || nr >= SIZE || nc < 0 || nc >= SIZE) break;
-                int np = nr * SIZE + nc;
-                
-                if (opp[np]) {
-                    opp_count++;
-                } else if (own[np]) {
+                if (nr < 0 || nr >= SIZE || nc < 0 || nc >= SIZE)
                     break;
-                } else {
+                int np = nr * SIZE + nc;
+
+                if (opp[np])
+                {
+                    opp_count++;
+                }
+                else if (own[np])
+                {
+                    break;
+                }
+                else
+                {
                     opp_open++;
                     break;
                 }
             }
         }
-        
+
         // own winning patterns (high priority)
-        if (own_count >= 4) priority += 100000;
-        else if (own_count == 3 && own_open >= 1) priority += 10000;
-        else if (own_count == 2 && own_open >= 2) priority += 1000;
-        
+        if (own_count >= 4)
+            priority += 100000;
+        else if (own_count == 3 && own_open >= 1)
+            priority += 10000;
+        else if (own_count == 2 && own_open >= 2)
+            priority += 1000;
+
         // opponent threats (must block)
-        if (opp_count >= 4) priority += 50000;
-        else if (opp_count == 3 && opp_open >= 1) priority += 5000;
-        else if (opp_count == 2 && opp_open >= 2) priority += 500;
+        if (opp_count >= 4)
+            priority += 50000;
+        else if (opp_count == 3 && opp_open >= 1)
+            priority += 5000;
+        else if (opp_count == 2 && opp_open >= 2)
+            priority += 500;
     }
     return priority;
 }
 
 /**
- * This function generates a list of valid moves for the current board state by finding all 
+ * This function generates a list of valid moves for the current board state by finding all
  * empty positions that are within a certain radius of existing pieces.
  * @param board ; const Board& ; the current state of the board
- * @return std::vector<int> ; a vector containing the positions of valid moves, 
- * where each position is an index (0-224) corresponding to an empty square on the board that is near existing pieces
+ * @return std::vector<int> ; a vector containing the positions of valid moves,
+ * where each position is an index (0-224) corresponding to an empty square on the board that is
+ * near existing pieces
  */
-std::vector<int> Evaluator::get_valid_moves(const Board& board) const {
+std::vector<int> Evaluator::get_valid_moves(const Board& board) const
+{
     const int SIZE = g_config.board_size;
     const int SQUARES = SIZE * SIZE;
     std::vector<int> moves;
-    
+
     // edge case: if board is empty, return center move
-    if (board.black.count() == 0 && board.white.count() == 0) {
+    if (board.black.count() == 0 && board.white.count() == 0)
+    {
         int center = (SIZE / 2) * SIZE + (SIZE / 2);
         moves.push_back(center);
         return moves;
     }
-    
+
     std::bitset<MAX_SQUARES> candidates;
-    
-    // find all empty positions that are within a 2-square radius of existing pieces to limit the search space to relevant moves.
-    for (int pos = 0; pos < SQUARES; pos++) {
-        if (!board.black.test(pos) && !board.white.test(pos)) continue;
-        
+
+    // find all empty positions that are within a 2-square radius of existing pieces to limit the
+    // search space to relevant moves.
+    for (int pos = 0; pos < SQUARES; pos++)
+    {
+        if (!board.black.test(pos) && !board.white.test(pos))
+            continue;
+
         int x = pos % SIZE;
         int y = pos / SIZE;
-        
-        for (int dy = -2; dy <= 2; dy++) {
-            for (int dx = -2; dx <= 2; dx++) {
+
+        for (int dy = -2; dy <= 2; dy++)
+        {
+            for (int dx = -2; dx <= 2; dx++)
+            {
                 int nx = x + dx;
                 int ny = y + dy;
-                if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE) {
+                if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE)
+                {
                     int npos = ny * SIZE + nx;
-                    if (!board.black.test(npos) && !board.white.test(npos)) {
+                    if (!board.black.test(npos) && !board.white.test(npos))
+                    {
                         candidates.set(npos);
                     }
                 }
             }
         }
     }
-    
+
     moves.reserve(candidates.count());
-    for (int pos = 0; pos < SQUARES; pos++) {
-        if (candidates.test(pos)) {
+    for (int pos = 0; pos < SQUARES; pos++)
+    {
+        if (candidates.test(pos))
+        {
             moves.push_back(pos);
         }
     }
@@ -475,30 +574,33 @@ std::vector<int> Evaluator::get_valid_moves(const Board& board) const {
 
 /**
  * ===== LEGACY =====
- * This function is a wrapper for the pattern scoring that calls the faster version of the pattern scoring function.
- * It is provided for compatibility with tests that may call the original score_pattern function, 
- * but it simply delegates to the optimized version.
+ * This function is a wrapper for the pattern scoring that calls the faster version of the pattern
+ * scoring function. It is provided for compatibility with tests that may call the original
+ * score_pattern function, but it simply delegates to the optimized version.
  * @param count ; int ; the number of pieces in a row
  * @param open_ends ; int ; the number of open ends (0, 1, or 2)
  * @return int ; the score for the given pattern based on precomputed values in PATTERN_SCORES
  */
-int Evaluator::score_pattern(int count, int open_ends) const {
+int Evaluator::score_pattern(int count, int open_ends) const
+{
     return fast_score_pattern(count, open_ends);
 }
 
 /**
  * ===== LEGACY =====
- * This function is a wrapper for the line analysis that calls the faster version of the line analysis function.
- * It is provided for compatibility with tests that may call the original analyze_line function, 
- * but it simply delegates to the optimized version.
+ * This function is a wrapper for the line analysis that calls the faster version of the line
+ * analysis function. It is provided for compatibility with tests that may call the original
+ * analyze_line function, but it simply delegates to the optimized version.
  * @param board ; const Board& ; the current state of the board
  * @param pos ; int ; the starting position for the line analysis
  * @param dx ; int ; the x-direction to move (e.g., 1 for horizontal, 0 for vertical)
  * @param dy ; int ; the y-direction to move (e.g., 1 for vertical, 0 for horizontal)
  * @param is_black ; bool ; true if analyzing for black pieces, false for white pieces
- * @return LineInfo ; a struct containing the count of pieces in a row and the number of open ends for the analyzed line, 
- * as calculated by the faster version of the line analysis function
+ * @return LineInfo ; a struct containing the count of pieces in a row and the number of open ends
+ * for the analyzed line, as calculated by the faster version of the line analysis function
  */
-Evaluator::LineInfo Evaluator::analyze_line(const Board& board, int pos, int dx, int dy, bool is_black) const {
+Evaluator::LineInfo Evaluator::analyze_line(const Board& board, int pos, int dx, int dy,
+                                            bool is_black) const
+{
     return analyze_line_fast(board, pos, dx, dy, is_black);
 }

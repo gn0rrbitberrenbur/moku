@@ -25,9 +25,11 @@ jobs:
         uses: microsoft/setup-msbuild@v2
       
       - name: Configure CMake
+        working-directory: moku
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release
       
       - name: Build
+        working-directory: moku
         run: cmake --build build --config Release --target moku
       
       - name: Upload Linux artifact
@@ -35,14 +37,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: moku-linux
-          path: build/moku
+          path: moku/build/moku
       
       - name: Upload Windows artifact
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: moku-windows
-          path: build/Release/moku.exe
+          path: moku/build/Release/moku.exe
   
   release:
     needs: build
