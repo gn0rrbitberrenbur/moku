@@ -19,12 +19,15 @@ fi
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd -- "$script_dir/.." && pwd)"
-source_dir="$repo_root/moku"
-build_dir="$source_dir/build"
+build_dir="$repo_root/build"
 
-printf '%s[INFO] Running CMake configuration in build directory [%s].%s\n' "$green" "$build_dir" "$reset"
+printf '%s[INFO] Running full CMake configuration in build directory [%s].%s\n' "$green" "$build_dir" "$reset"
 
-if cmake -S "$source_dir" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release; then
+if cmake -S "$repo_root" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release \
+    -DMOKU_BUILD_ENGINE=ON \
+    -DMOKU_BUILD_TESTS=ON \
+    -DMOKU_BUILD_PYTHON=ON \
+    -DMOKU_BUILD_NNUE=ON; then
     :
 else
     status=$?
@@ -33,14 +36,14 @@ else
 fi
 
 printf '%s[INFO] CMake configuration was successful.%s\n' "$green" "$reset"
-printf '%s[INFO] Starting build process.%s\n' "$green" "$reset"
+printf '%s[INFO] Starting full build process.%s\n' "$green" "$reset"
 
 if cmake --build "$build_dir" --config Release; then
     :
 else
     status=$?
-    printf '%s[ERROR] Build failed in [%s] (exit code %s).%s\n' "$red" "$build_dir" "$status" "$reset" >&2
+    printf '%s[ERROR] Full build failed in [%s] (exit code %s).%s\n' "$red" "$build_dir" "$status" "$reset" >&2
     exit "$status"
 fi
 
-printf '%s[INFO] Build completed successfully in [%s].%s\n' "$green" "$build_dir" "$reset"
+printf '%s[INFO] Full build completed successfully in [%s].%s\n' "$green" "$build_dir" "$reset"
