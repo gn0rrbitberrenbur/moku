@@ -27,10 +27,10 @@ endif()
 
 # Engine and tests default to ON only for a standalone build. When moku is pulled in via
 # FetchContent or add_subdirectory, only the moku_core library is built unless requested.
-option(MOKU_BUILD_ENGINE "Build the gomocup_moku and extended_moku executables" ${MOKU_IS_TOP_LEVEL})
-option(MOKU_BUILD_TESTS  "Build the GoogleTest suites"                          ${MOKU_IS_TOP_LEVEL})
-option(MOKU_BUILD_PYTHON "Build the pymoku pybind11 module"                     OFF)
-option(MOKU_BUILD_NNUE   "Build the nnue_gen dataset generator"                 OFF)
+option(MOKU_BUILD_ENGINE "Build the gomocup_moku and extended_moku executables" ON)
+option(MOKU_BUILD_TESTS  "Build the GoogleTest suites"                          ON)
+option(MOKU_BUILD_PYTHON "Build the pymoku pybind11 module"                     ON)
+option(MOKU_BUILD_NNUE   "Build the nnue_gen dataset generator"                 ON)
 
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/CompilerWarnings.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/Dependencies.cmake")
@@ -40,14 +40,14 @@ if(MOKU_BUILD_TESTS)
     moku_fetch_googletest()
 endif()
 
-add_subdirectory(moku)
+add_subdirectory(engine/moku)
 
 if(MOKU_BUILD_PYTHON)
-    add_subdirectory(bindings/python)
+    add_subdirectory(python_bindings)
 endif()
 
 if(MOKU_BUILD_NNUE)
-    add_subdirectory(tools/nnue)
+    add_subdirectory(nnue/generate_dataset)
 endif()
 
 message(STATUS "moku ${MOKU_VERSION} | engine=${MOKU_BUILD_ENGINE} tests=${MOKU_BUILD_TESTS} "

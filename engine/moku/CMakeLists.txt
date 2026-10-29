@@ -40,15 +40,31 @@ add_library(moku_core STATIC
     tt/transposition_table.cpp
 )
 
+add_library(moku::core ALIAS moku_core)
+
+set_target_properties(moku_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 target_include_directories(moku_core PUBLIC
     ${MOKU_INCLUDE_DIRS}
 )
 
 target_compile_features(moku_core PUBLIC cxx_std_17)
 
-if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-    # build excutable (gomocup protocol)
-    add_executable(gomocup_moku 
+# --- Engine executables ---------------------------------------------------------
+# Root builds define MOKU_BUILD_ENGINE and MOKU_BUILD_TESTS. The old
+# CMAKE_SOURCE_DIR == PROJECT_SOURCE_DIR guard prevented the targets from being
+# created when the engine was added as a subdirectory.
+if(NOT DEFINED MOKU_BUILD_ENGINE)
+    set(MOKU_BUILD_ENGINE ON)
+endif()
+
+if(NOT DEFINED MOKU_BUILD_TESTS)
+    set(MOKU_BUILD_TESTS ON)
+endif()
+
+if(MOKU_BUILD_ENGINE)
+    # build executable (gomocup protocol)
+    add_executable(gomocup_moku
         game/tools/algebraic_to_index.cpp
         main_gomocup.cpp
         game/board.cpp
@@ -69,8 +85,8 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
         set_target_properties(gomocup_moku PROPERTIES OUTPUT_NAME "gomocup_moku")
     endif()
 
-    # build excutable (extended protocol)
-    add_executable(extended_moku 
+    # build executable (extended protocol)
+    add_executable(extended_moku
         game/tools/algebraic_to_index.cpp
         main_extended_protocol.cpp
         game/board.cpp
@@ -91,8 +107,10 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     else()
         set_target_properties(extended_moku PROPERTIES OUTPUT_NAME "extended_moku")
     endif()
+endif()
 
-    # build tests
+# --- Tests --------------------------------------------------------------------
+if(MOKU_BUILD_TESTS)
     FetchContent_Declare(
         googletest
         GIT_REPOSITORY https://github.com/google/googletest.git
@@ -101,12 +119,11 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)
 
-    # Enable testing
     enable_testing()
 
     # Tests
     file(GLOB TEST_SOURCES "tests/tests.cpp")
-    add_executable(tests 
+    add_executable(tests
         ${TEST_SOURCES}
         game/tools/algebraic_to_index.cpp
         benchmark/benchmark.cpp
@@ -132,7 +149,7 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     )
 
     target_include_directories(gomocup_protocol_tests PRIVATE
-    ${MOKU_INCLUDE_DIRS}
+        ${MOKU_INCLUDE_DIRS}
     )
 
     target_link_libraries(gomocup_protocol_tests PRIVATE
@@ -141,13 +158,7 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
         Threads::Threads
     )
 
-    # Register tests
     include(GoogleTest)
-    gtest_discover_tests(tests
-        DISCOVERY_TIMEOUT 30
-        )
-    
-    gtest_discover_tests(gomocup_protocol_tests
-    DISCOVERY_TIMEOUT 30
-    )
+    gtest_discover_tests(tests DISCOVERY_TIMEOUT 30)
+    gtest_discover_tests(gomocup_protocol_tests DISCOVERY_TIMEOUT 30)
 endif()

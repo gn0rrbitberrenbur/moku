@@ -17,7 +17,7 @@ test = ["pytest"]
 [tool.scikit-build]
 minimum-version = "0.10"
 cmake.version = ">=3.15"
-wheel.packages = ["bindings/python/pymoku"]
+wheel.packages = ["python_bindings/pymoku"]
 
 [tool.scikit-build.cmake.define]
 MOKU_BUILD_PYTHON = "ON"
