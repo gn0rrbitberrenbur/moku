@@ -11,7 +11,16 @@ The repository is organized as a CMake project and supports building engine bina
 moku/
 ├── CMakeLists.txt - top-level CMake configuration and project-wide options
 ├── cmake/ - shared CMake modules for compiler warnings and dependencies
-├── cli/   - cli application that runs gomocup compliant engines
+├── cli/ - command-line application and terminal UI for playing and testing the engine
+│   └── moku-cli/
+│       ├── board/ - board state and move handling for the CLI
+│       ├── engine/ - engine integration and protocol communication
+│       ├── file_handling/ - loading and saving configuration or game data
+│       ├── process/ - process management for engine lifecycles
+│       ├── settings/ - CLI settings and configuration management
+│       ├── tests/ - CLI-specific test suite
+│       ├── ui/ - terminal rendering, input handling, and menus
+│       └── main.cpp - entry point for the CLI application
 ├── engine/ - engine source tree and documentation
 │   └── moku/
 │       ├── game/ - board logic and game rules
@@ -34,130 +43,46 @@ moku/
 The project provides separate convenience scripts for each platform. These scripts wrap the underlying CMake configure/build/test commands and are intended to make local development easier.
 
 ### Linux (.sh)
-#### Build
-```
-bash scripts/build.sh
-```
-Configures the project and builds the full default configuration in the build/ directory
+#### All targets
+- `bash scripts/build.sh` - Configures the project and builds the full default configuration in the build/ directory
 
-```
-`bash scripts/build_core.sh` 
-```
-Builds only the core engine library
+#### Engine targets
+- `bash scripts/build_core.sh` - Builds only the core engine library
+- `bash scripts/build_extended_moku.sh` - Builds the extended protocol executable
+- `bash scripts/build_gomocup_moku.sh` - Builds the Gomocup protocol executable
+- `bash scripts/build_nnue_gen.sh` - Builds the NNUE dataset generator
 
-```
-bash scripts/build_extended_moku.sh
-```
-Builds the extended protocol executable
+#### Test targets
+- `bash scripts/build_moku_tests.sh` - Builds the core engine test target
+- `bash scripts/build_gomocup_protocol_tests.sh` - Builds the Gomocup protocol test target
+- `bash scripts/build_nnue_tests.sh` - Builds the NNUE-related tests
 
-```
-bash scripts/build_gomocup_moku.sh
-```
-Builds the Gomocup protocol executable
-
-```
-bash scripts/build_moku_tests.sh
-```
-Builds the core engine test target
-
-```
-bash scripts/build_gomocup_protocol_tests.sh
-```
-Builds the Gomocup protocol test target
-
-```
-bash scripts/build_nnue_gen.sh
-```
-Builds the NNUE dataset generator
-
-```
-bash scripts/build_nnue_tests.sh
-```
-Builds the NNUE-related tests
-
-#### Tests
-```
-bash scripts/run_all_tests.sh
-```
-Runs all configured tests via ctest
-
-```
-bash scripts/run_engine_tests.sh
-```
-Runs the main engine test suite
-
-```
-bash scripts/run_gomocup_protocol_tests.sh
-```
-Runs the Gomocup protocol tests
-
-```
-bash scripts/run_nnue_tests.sh
-```
-Runs the NNUE test suite
+#### Run tests
+- `bash scripts/run_all_tests.sh` - Runs all configured tests via ctest
+- `bash scripts/run_engine_tests.sh` - Runs the main engine test suite
+- `bash scripts/run_gomocup_protocol_tests.sh` - Runs the Gomocup protocol tests
+- `bash scripts/run_nnue_tests.sh` - Runs the NNUE test suite
 
 ### Windows (.ps1)
-#### Build
-```
-./scripts/build.ps1
-```
-Configures and builds the full project
+#### All targets
+- `./scripts/build.ps1` - Configures and builds the full project
 
-```
-./scripts/build_core.ps1
-```
-Builds only the core library
+#### Engine targets
+- `./scripts/build_core.ps1` - Builds only the core engine library
+- `./scripts/build_extended_moku.ps1` - Builds the extended protocol executable
+- `./scripts/build_gomocup_moku.ps1` - Builds the Gomocup protocol executable
+- `./scripts/build_nnue_gen.ps1` - Builds the NNUE dataset generator
 
-```
-./scripts/build_extended_moku.ps1
-```
-Builds the extended protocol executable
+#### Test targets
+- `./scripts/build_moku_tests.ps1` - Builds the core engine test target
+- `./scripts/build_gomocup_protocol_tests.ps1` - Builds the Gomocup protocol test target
+- `./scripts/build_nnue_tests.ps1` - Builds the NNUE-related tests
 
-```
-./scripts/build_gomocup_moku.ps1
-```
-Builds the Gomocup protocol executable
-
-```
-./scripts/build_moku_tests.ps1
-```
-Builds the core engine tests
-
-```
-./scripts/build_gomocup_protocol_tests.ps1
-```
-Builds the Gomocup protocol tests
-
-```
-./scripts/build_nnue_gen.ps1
-```
-Builds the NNUE generator
-
-```
-./scripts/build_nnue_tests.ps1
-```
-Builds the NNUE tests
-
-#### Tests
-```
-./scripts/run_all_tests.ps1
-```
-Runs all tests using the configured build tree
-
-```
-./scripts/run_engine_tests.ps1
-```
-Runs the main engine test suite
-
-```
-./scripts/run_gomocup_protocol_tests.ps1
-```
-Runs the Gomocup protocol tests
-
-```
-./scripts/run_nnue_tests.ps1
-```
-Runs the NNUE tests
+#### Run tests
+- `./scripts/run_all_tests.ps1` - Runs all configured tests via ctest
+- `./scripts/run_engine_tests.ps1` - Runs the main engine test suite
+- `./scripts/run_gomocup_protocol_tests.ps1` - Runs the Gomocup protocol tests
+- `./scripts/run_nnue_tests.ps1` - Runs the NNUE test suite
 
 ## Typical workflow
 For a standard local build on Linux:
