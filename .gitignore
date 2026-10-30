@@ -219,3 +219,6 @@ tempCodeRunnerFile.py
 
 # PyPI configuration file
 .pypirc
+
+# moku files
+debug-reports/

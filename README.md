@@ -9,24 +9,25 @@ The repository is organized as a CMake project and supports building engine bina
 ## Repository structure
 ```
 moku/
-├── CMakeLists.txt — top-level CMake configuration and project-wide options
-├── cmake/ — shared CMake modules for compiler warnings and dependencies
-├── engine/ — engine source tree and documentation
+├── CMakeLists.txt - top-level CMake configuration and project-wide options
+├── cmake/ - shared CMake modules for compiler warnings and dependencies
+├── cli/   - cli application that runs gomocup compliant engines
+├── engine/ - engine source tree and documentation
 │   └── moku/
-│       ├── game/ — board logic and game rules
-│       ├── search/ — minimax and search logic
-│       ├── eval/ — evaluator and move ordering
-│       ├── tt/ — transposition table and hashing
-│       ├── benchmark/ — benchmark utilities
-│       └── tests/ — unit and protocol tests
-├── python_bindings/ — Python bindings built with pybind11
+│       ├── game/ - board logic and game rules
+│       ├── search/ - minimax and search logic
+│       ├── eval/ - evaluator and move ordering
+│       ├── tt/ - transposition table and hashing
+│       ├── benchmark/ - benchmark utilities
+│       └── tests/ - unit and protocol tests
+├── python_bindings/ - Python bindings built with pybind11
 ├── nnue/
-│   └── generate_dataset/ — dataset generation utilities for NNUE experiments
-├── scripts/ — convenience scripts for building and running tests on Windows and Linux
-├── VERSION — canonical project version
-├── LICENSE — project license
-├── README.md — project overview
-└── .github/ — repository automation and project instructions
+│   └── generate_dataset/ - dataset generation utilities for NNUE experiments
+├── scripts/ - convenience scripts for building and running tests on Windows and Linux
+├── VERSION - canonical project version
+├── LICENSE - project license
+├── README.md - project overview
+└── .github/ - repository automation and project instructions
 ```
 
 ## Build and test scripts
