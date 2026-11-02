@@ -15,48 +15,42 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential
 
-      - name: Setup MSVC
-        if: runner.os == 'Windows'
-        uses: microsoft/setup-msbuild@v2
-
       - name: Configure CMake
-        working-directory: moku
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
-
-      - name: Build Linux
-        if: runner.os == 'Linux'
-        working-directory: moku
+        shell: bash
         run: |
-          cmake --build build --config Release --target gomocup_moku
-          cmake --build build --config Release --target extended_moku
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DMOKU_BUILD_ENGINE=ON \
+            -DMOKU_BUILD_TESTS=OFF \
+            -DMOKU_BUILD_PYTHON=OFF \
+            -DMOKU_BUILD_NNUE=OFF \
+            -DMOKU_BUILD_CLI=OFF
 
-      - name: Build Windows
-        if: runner.os == 'Windows'
-        working-directory: moku
+      - name: Build engine targets
+        shell: bash
         run: |
-          cmake --build build --config Release --target gomocup_moku
-          cmake --build build --config Release --target extended_moku
+          cmake --build build --config Release --target gomocup_moku extended_moku
 
       - name: Prepare Linux artifacts
         if: runner.os == 'Linux'
-        working-directory: moku
+        shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          version="${GITHUB_REF_NAME#v}"
           mkdir -p release
-          cp build/gomocup_moku "release/gomocup_moku_${VERSION}"
-          cp build/extended_moku "release/extended_moku_${VERSION}"
+          cp build/gomocup_moku "release/gomocup_moku_${version}"
+          cp build/extended_moku "release/extended_moku_${version}"
 
       - name: Prepare Windows artifacts
         if: runner.os == 'Windows'
-        working-directory: moku
         shell: pwsh
         run: |
           $version = "${env:GITHUB_REF_NAME}".TrimStart("v")
@@ -69,23 +63,25 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: moku-linux
-          path: moku/release/*
+          path: release/*
 
       - name: Upload Windows artifacts
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: moku-windows
-          path: moku/release/*
+          path: release/*
 
   release:
     needs: build
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
 
