@@ -46,8 +46,8 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           mkdir -p release
-          cp build/gomocup_moku "release/gomocup_moku_${version}"
-          cp build/extended_moku "release/extended_moku_${version}"
+          cp build/engine/moku/gomocup_moku "release/gomocup_moku_${version}"
+          cp build/engine/moku/extended_moku "release/extended_moku_${version}"
 
       - name: Prepare Windows artifacts
         if: runner.os == 'Windows'
@@ -55,8 +55,8 @@ jobs:
         run: |
           $version = "${env:GITHUB_REF_NAME}".TrimStart("v")
           New-Item -ItemType Directory -Force -Path release
-          Copy-Item "build/Release/gomocup_moku.exe" "release/gomocup_moku_${version}.exe"
-          Copy-Item "build/Release/extended_moku.exe" "release/extended_moku_${version}.exe"
+          Copy-Item "build/engine/moku/gomocup_moku.exe" "release/gomocup_moku_${version}.exe"
+          Copy-Item "build/engine/moku/extended_moku.exe" "release/extended_moku_${version}.exe"
 
       - name: Upload Linux artifacts
         if: runner.os == 'Linux'
