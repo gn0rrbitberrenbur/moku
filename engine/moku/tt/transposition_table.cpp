@@ -1,5 +1,7 @@
 #include "tt/transposition_table.hpp"
 
+#include <algorithm>
+
 /**
  * This file implements the TranspositionTable class defined in ../tt/transposition_table.hpp, which
  * provides a hash-based caching mechanism for game states in a Gomoku AI. The class uses Zobrist
@@ -92,8 +94,9 @@ static constexpr float MATE = 90000.0f;
  */
 bool TranspositionTable::probe(uint64_t hash, TTEntry& entry, int ply) const
 {
+    std::lock_guard<std::mutex> lock(slot_mutexes[hash & (LOCK_COUNT - 1)]);
     const TTEntry& slot = table[hash & TT_MASK];
-    if (slot.key != hash)
+    if (slot.depth < 0 || slot.key != hash)
         return false;
     entry = slot;
     if (entry.score >= MATE)
@@ -121,17 +124,23 @@ void TranspositionTable::store(uint64_t hash, float score, int depth, int flag, 
         score += ply;
     else if (score <= -MATE)
         score -= ply;
+    std::lock_guard<std::mutex> lock(slot_mutexes[hash & (LOCK_COUNT - 1)]);
     TTEntry& slot = table[hash & TT_MASK];
     if (slot.key != hash || slot.depth <= depth)
+    {
+        if (slot.depth < 0)
+            occupied_entries.fetch_add(1, std::memory_order_relaxed);
         slot = {hash, score, depth, flag, best_move};
+    }
 }
 
 /**
- * This function clears the transposition table by simply clearing the underlying unordered_map.
+ * Resets entries and occupancy while retaining capacity. Call with no search in progress.
  * @param None
  * @return void
  */
 void TranspositionTable::clear()
 {
     std::fill(table.begin(), table.end(), TTEntry{});
+    occupied_entries.store(0, std::memory_order_relaxed);
 }

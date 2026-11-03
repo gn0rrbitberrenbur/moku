@@ -1,72 +1,97 @@
 # Build and Release Reference
-The CMake project lives under `moku`. It builds a static core library, two protocol executables, and two GoogleTest executables.
+Configure CMake from the repository root. The root project builds the core library,
+protocol executables, tests, Python bindings, and NNUE tools according to its feature
+options. Emscripten builds the extended protocol engine as WebAssembly in a separate
+build tree.
 
 ## 1. Requirements and Defaults
-- The project declares CMake 3.14 as its minimum.
+- The project declares CMake 3.15 as its minimum.
 - A compiler supporting C++17 is required.
-- CMake must find the platform thread library.
-- Standalone configuration fetches GoogleTest v1.14.0 from GitHub.
+- Native builds require the platform thread library.
+- Test builds fetch GoogleTest v1.14.0 from GitHub.
+- WebAssembly builds require an installed and activated Emscripten SDK.
 
-When `CMAKE_BUILD_TYPE` is unset, the project sets it to `Release`.
+When `CMAKE_BUILD_TYPE` is unset for a single-configuration generator, the root
+project sets it to `Release`. `MOKU_BUILD_WASM` defaults to `OFF`; native builds do
+not need Emscripten.
 
-MSVC builds enable `/W4`; other compilers receive `-Wall -Wextra -pedantic`.
-Platform definitions are `_WIN32`, `LINUX`, or `MACOS`, as applicable.
+## 2. Configure, Build, and Test
+From the repository root, configure and build the native project:
 
-## 2. Target Layout
-| Target | Type | Included functionality |
-| --- | --- | --- |
-| `moku_core` | Static library | Board, coordinate conversion, evaluation, search, and table |
-| `gomocup_moku` | Executable | Core sources and Gomocup handler |
-| `extended_moku` | Executable | Core sources, extended handler, and benchmarks |
-| `tests` | Executable | Core, benchmark, Gomocup handler, and core test source |
-| `gomocup_protocol_tests` | Executable | Board, evaluation, search, table, handler, and protocol test source |
-
-Executables compile their listed core sources directly rather than linking
-`moku_core`. New source files must therefore be added to every applicable
-target, not only to the library.
-
-## 3. Configure, Build, and Test
-From the repository root, in PowerShell:
-
-```powershell
-cmake -S moku -B moku\build -DCMAKE_BUILD_TYPE=Release
-cmake --build moku\build --config Release
-ctest --test-dir moku\build -C Release --output-on-failure
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure --no-tests=error
 ```
 
-From the repository root, the build can also be started with these scripts:
+To build the WebAssembly target separately, first activate the Emscripten SDK
+environment, then run the matching platform script:
 
 ```powershell
-.\scripts\build.ps1
+.\scripts\build_wasm.ps1
 ```
 
 ```bash
-bash scripts/build.sh
+bash scripts/build_wasm.sh
 ```
 
-To build only the engines:
+These scripts configure `build/wasm` with `MOKU_BUILD_WASM=ON`, disable unrelated
+targets, and build `extended_moku_wasm`. The CMake cache is isolated from the native
+build in `build/`. The generated JavaScript and WebAssembly module are located under
+`build/wasm/engine/moku/`.
 
-```powershell
-cmake --build moku\build --config Release --target gomocup_moku extended_moku
+The full `scripts/build.ps1` and `scripts/build.sh` scripts build the native project
+and then invoke the matching WASM script. They therefore require Emscripten to be
+active as well. Use direct CMake commands for a native-only build.
+
+## 3. Emscripten Environment
+
+Install and activate the SDK:
+
+```sh
+git clone https://github.com/emscripten-core/emsdk.git
+cd emsdk
+./emsdk install latest
+./emsdk activate latest
 ```
 
-Typical multi-configuration Windows output locations are:
+On Linux or macOS, source `emsdk_env.sh` in each build shell:
 
-```text
-moku\build\Release\gomocup_moku.exe
-moku\build\Release\extended_moku.exe
+```sh
+source /path/to/emsdk/emsdk_env.sh
+cd /path/to/moku
+bash scripts/build_wasm.sh
 ```
 
-## 4. Runtime Use and Formatting
-Run an executable and send protocol commands through stdin. There are no
-command-line configuration flags. Use `INFO` for supported runtime settings;
-see [configuration](docsConfig.md) and [protocol documentation](docsGomocupProtocol.md).
+On Windows, run `emsdk_env.bat` in Command Prompt and launch PowerShell from that
+same prompt so it inherits the configured environment:
+
+```bat
+cd /d C:\tools\emsdk
+emsdk.bat install latest
+emsdk.bat activate latest
+emsdk_env.bat
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\path\to\moku\scripts\build_wasm.ps1
+```
+
+The `emcmake` command must be available in the active environment.
+
+## 4. Targets
+The active engine CMake project provides `moku_core`, `gomocup_moku`,
+`extended_moku`, `moku_tests`, `gomocup_protocol_tests`, and
+`extended_moku_wasm`. The WASM target is only enabled when `MOKU_BUILD_WASM=ON`
+and CMake is configured through Emscripten.
+
+## 5. Runtime Use and Formatting
+Run a native executable and send protocol commands through stdin. Use `INFO` for
+supported runtime settings; see [configuration](docsConfig.md) and
+[protocol documentation](docsGomocupProtocol.md).
 
 The repository's clang-format configuration uses LLVM style with four-space
 indentation, Allman braces, a 100-character column limit, and left-aligned
 pointers and references.
 
-## 5. CI and Release Workflow
+## 6. CI and Release Workflow
 The `Build and Release` workflow runs for `v*` tags and manual dispatch.
 Its build matrix uses `ubuntu-latest` and `windows-latest`.
 
@@ -84,9 +109,11 @@ It is not read from `GameConfig::version` or the CMake project version.
 Manual dispatch is enabled, but creating a release still requires a suitable
 tag/release context; dispatch alone does not synchronize version values.
 
-## 6. Implementation Locations
-- [CMakeLists.txt](../moku/CMakeLists.txt): targets, dependencies, and compiler settings.
-- [build.yml](../.github/workflows/build.yml): build matrix and release jobs.
+## 7. Implementation Locations
+- [Root CMakeLists.txt](../../CMakeLists.txt): project options, dependencies, and build routing.
+- [Engine CMakeLists.txt](../moku/CMakeLists.txt): engine and WASM targets.
+- [build.yml](../../.github/workflows/build.yml): build matrix and release jobs.
+- [Build scripts](../../scripts): native and WebAssembly convenience scripts.
 - [.clang-format](../.clang-format): formatting rules.
 - [Test reference](docsTests.md): focused validation commands.
-- [Project README](../README.md): quick-start instructions.
+- [Project README](../../README.md): quick-start instructions.

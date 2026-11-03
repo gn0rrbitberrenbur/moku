@@ -31,7 +31,7 @@ option(MOKU_BUILD_ENGINE "Build the gomocup_moku and extended_moku executables" 
 option(MOKU_BUILD_TESTS  "Build the GoogleTest suites"                          ON)
 option(MOKU_BUILD_PYTHON "Build the pymoku pybind11 module"                     ON)
 option(MOKU_BUILD_NNUE   "Build the nnue_gen dataset generator"                 ON)
-option(MOKU_BUILD_CLI    "Build the moku cli" ON)
+option(MOKU_BUILD_WASM   "Build the WebAssembly extended engine"                OFF)
 
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/CompilerWarnings.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/Dependencies.cmake")
@@ -51,9 +51,5 @@ if(MOKU_BUILD_NNUE)
     add_subdirectory(nnue/generate_dataset)
 endif()
 
-if (MOKU_BUILD_CLI)
-    add_subdirectory(cli)
-endif()
-
 message(STATUS "moku ${MOKU_VERSION} | engine=${MOKU_BUILD_ENGINE} tests=${MOKU_BUILD_TESTS} "
-               "python=${MOKU_BUILD_PYTHON} nnue=${MOKU_BUILD_NNUE} cli=${MOKU_BUILD_CLI}")
+               "python=${MOKU_BUILD_PYTHON} nnue=${MOKU_BUILD_NNUE} wasm=${MOKU_BUILD_WASM}")

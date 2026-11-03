@@ -71,7 +71,11 @@ private:
     int max_depth;
     std::atomic<long long> nodes_searched{0};
     std::atomic<long long> tt_hits{0};
-    int current_depth = 0;
+    std::atomic<long long> tt_probes{0};
+    std::atomic<long long> alpha_beta_cutoffs{0};
+    std::atomic<int> depth_completed{0};
+    std::atomic<unsigned int> workers_active{0};
+    size_t root_candidates_count = 0;
 
     // time control
     std::chrono::steady_clock::time_point search_start;
@@ -97,5 +101,7 @@ private:
     std::chrono::steady_clock::time_point last_progress_report;
     std::mutex progress_mutex;
 
-    void report_progress();
+    void reset_search_metrics(int time_limit_ms);
+    void finish_search_metrics(int best_move);
+    void report_progress(bool finished = false);
 };

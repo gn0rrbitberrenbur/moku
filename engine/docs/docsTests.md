@@ -6,24 +6,26 @@ executables and registers their individual cases with CTest through
 ## 1. Test Targets and Coverage
 | Target | Source | Main coverage |
 | --- | --- | --- |
-| `tests` | `tests/tests.cpp` | Conversion, board, evaluation, Gomocup engine, and transposition table |
+| `moku_tests` | `tests/tests.cpp` | Conversion, board, evaluation, Gomocup engine, transposition table, and search metrics |
 | `gomocup_protocol_tests` | `tests/gomocup_protocol_test.cpp` | Focused Gomocup command behavior and response formatting |
 
 Core suite names include `AlgebraicConversion`, `BoardTest`, `EvaluatorTest`,
-`EngineTest`, and `TranspositionTableTest`. The dedicated protocol fixture
+`EngineTest`, `TranspositionTableTest`, and `SearchMetricsTest`. The dedicated protocol fixture
 is `GomocupProtocolTest`.
 
 Checks include row-major conversion, move mutation, winning lines, window
 scores, nearby candidates, command settings, hash consistency, replacement
-policy, and mate-score normalization.
+policy, mate-score normalization, TT occupancy under concurrent stores,
+per-search counter resets, completed depths, live worker gauges, and final
+debug snapshots for fixed-depth, serial timed, and SMP search.
 
 ## 2. Configuration and Build
 From the repository root, in PowerShell:
 
 ```powershell
-cmake -S moku -B moku\build -DCMAKE_BUILD_TYPE=Release
-cmake --build moku\build --config Release --target tests gomocup_protocol_tests
-ctest --test-dir moku\build -C Release --output-on-failure
+cmake -S . -B build-engine -DMOKU_BUILD_PYTHON=OFF -DMOKU_BUILD_NNUE=OFF
+cmake --build build-engine --config Release --target moku_tests gomocup_protocol_tests
+ctest --test-dir build-engine -C Release --output-on-failure --no-tests=error
 ```
 
 Standalone CMake configuration fetches GoogleTest v1.14.0, so initial
@@ -34,20 +36,21 @@ replace the example path if the existing configured build is elsewhere.
 List discovered cases without running them:
 
 ```powershell
-ctest --test-dir moku\build -C Release -N
+ctest --test-dir build-engine -C Release -N
 ```
 
 Select related suites with one CTest regular expression:
 
 ```powershell
-ctest --test-dir moku\build -C Release --output-on-failure -R "^(BoardTest|EvaluatorTest)\."
-ctest --test-dir moku\build -C Release --output-on-failure -R "^GomocupProtocolTest\."
+ctest --test-dir build-engine -C Release --output-on-failure -R "^(BoardTest|EvaluatorTest)\."
+ctest --test-dir build-engine -C Release --output-on-failure -R "^(SearchMetricsTest|TranspositionTableTest)\."
+ctest --test-dir build-engine -C Release --output-on-failure -R "^GomocupProtocolTest\."
 ```
 
 For a multi-configuration Windows build, a direct GoogleTest run can use:
 
 ```powershell
-& .\moku\build\Release\tests.exe --gtest_filter="TranspositionTableTest.*"
+& .\build-engine\engine\moku\Release\moku_tests.exe --gtest_filter="TranspositionTableTest.*"
 ```
 
 Executable locations differ for single-configuration generators. CTest avoids

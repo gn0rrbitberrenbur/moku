@@ -42,23 +42,18 @@ bool MinimaxAgent::is_time_up()
  */
 int MinimaxAgent::get_best_move_timed(Board& board, bool is_black, int time_limit_ms)
 {
-    search_start = std::chrono::steady_clock::now();
-    last_progress_report = search_start;
-    progress_best_move.store(-1, std::memory_order_relaxed);
-    progress_depth.store(0, std::memory_order_relaxed);
-    progress_score.store(0.0f, std::memory_order_relaxed);
-    progress_score_valid.store(false, std::memory_order_relaxed);
-    time_limit = time_limit_ms;
-    search_aborted = false;
+    reset_search_metrics(time_limit_ms);
 
     int best_move = -1;
     float best_score = 0;
 
     // get moves
     std::vector<int> moves = evaluator.get_valid_moves(board);
+    root_candidates_count = moves.size();
 
     if (moves.empty())
     {
+        finish_search_metrics(-1);
         return -1;
     }
 
@@ -67,8 +62,10 @@ int MinimaxAgent::get_best_move_timed(Board& board, bool is_black, int time_limi
     {
         last_root_score = 0.0f;
         last_root_candidates = {RootCandidate{moves[0], 0.0f, 0}};
+        finish_search_metrics(moves[0]);
         return moves[0];
     }
+    workers_active.store(1, std::memory_order_relaxed);
 
     // set best_move to first move as fallback
     best_move = moves[0];
@@ -83,9 +80,6 @@ int MinimaxAgent::get_best_move_timed(Board& board, bool is_black, int time_limi
         std::cerr << "[info] Starting iterative deepening (limit: " << time_limit_ms
                   << "ms, moves: " << moves.size() << ")" << std::endl;
     }
-
-    nodes_searched = 0;
-    tt_hits = 0;
 
     // starting iterative deepening loop
     for (int depth = 1; depth <= max_depth; depth++)
@@ -180,6 +174,7 @@ int MinimaxAgent::get_best_move_timed(Board& board, bool is_black, int time_limi
             best_move = current_best_move;
             best_score = current_best_score;
             last_root_candidates = std::move(depth_candidates);
+            depth_completed.store(depth, std::memory_order_relaxed);
 
             // if winning move found, stop immediately
             if (std::abs(best_score) >= 90000)
@@ -215,8 +210,8 @@ int MinimaxAgent::get_best_move_timed(Board& board, bool is_black, int time_limi
         }
     }
 
-    time_limit = 0; // reset
     last_root_score = best_score;
+    finish_search_metrics(best_move);
     return best_move;
 }
 
@@ -234,8 +229,7 @@ int MinimaxAgent::get_best_move_timed(Board& board, bool is_black, int time_limi
 float MinimaxAgent::minimax(Board& board, int depth, float alpha, float beta, bool is_maximizing,
                             uint64_t hash)
 {
-    // check if theres enough time left every 1000 nodes
-    if (time_limit > 0 && nodes_searched % 1000 == 0)
+    if (nodes_searched.load(std::memory_order_relaxed) % 1000 == 0)
     {
         // report progress to std::cerr
         if (g_config.debug_output == true)
@@ -256,12 +250,12 @@ float MinimaxAgent::minimax(Board& board, int depth, float alpha, float beta, bo
     int ply = max_depth - depth;
 
     nodes_searched.fetch_add(1, std::memory_order_relaxed);
-    current_depth = max_depth - depth;
 
     float original_alpha = alpha;
 
     // lookup in transposition table
-    TTEntry entry = {0, -1, TTEntry::EXACT, -1};
+    TTEntry entry;
+    tt_probes.fetch_add(1, std::memory_order_relaxed);
     bool tt_hit = tt.probe(hash, entry, ply);
 
     if (tt_hit)
@@ -285,6 +279,7 @@ float MinimaxAgent::minimax(Board& board, int depth, float alpha, float beta, bo
 
             if (alpha >= beta)
             {
+                alpha_beta_cutoffs.fetch_add(1, std::memory_order_relaxed);
                 return entry.score;
             }
         }
@@ -357,7 +352,10 @@ float MinimaxAgent::minimax(Board& board, int depth, float alpha, float beta, bo
             alpha = std::max(alpha, eval);
 
             if (beta <= alpha)
+            {
+                alpha_beta_cutoffs.fetch_add(1, std::memory_order_relaxed);
                 break;
+            }
         }
         if (!search_aborted)
         {
@@ -399,7 +397,10 @@ float MinimaxAgent::minimax(Board& board, int depth, float alpha, float beta, bo
             beta = std::min(beta, eval);
 
             if (beta <= alpha)
+            {
+                alpha_beta_cutoffs.fetch_add(1, std::memory_order_relaxed);
                 break;
+            }
         }
         if (!search_aborted)
         {
@@ -420,17 +421,18 @@ float MinimaxAgent::minimax(Board& board, int depth, float alpha, float beta, bo
  */
 int MinimaxAgent::get_best_move(Board& board, bool is_black)
 {
-    nodes_searched = 0;
-    current_depth = 0;
-    tt_hits = 0;
+    reset_search_metrics(0);
 
-    auto begin = std::chrono::steady_clock::now();
     std::vector<int> moves = evaluator.get_valid_moves(board);
+    root_candidates_count = moves.size();
 
     if (moves.empty())
     {
+        finish_search_metrics(-1);
         return -1;
     }
+    workers_active.store(1, std::memory_order_relaxed);
+    progress_depth.store(max_depth, std::memory_order_relaxed);
 
     // calculate initial hash
     uint64_t hash = tt.compute_hash(board, is_black);
@@ -465,12 +467,14 @@ int MinimaxAgent::get_best_move(Board& board, bool is_black)
             best_move = move;
             beta = std::min(beta, score);
         }
+        progress_best_move.store(best_move, std::memory_order_relaxed);
+        progress_score.store(best_score, std::memory_order_relaxed);
+        progress_score_valid.store(true, std::memory_order_relaxed);
     }
 
-    auto end = std::chrono::steady_clock::now();
-    std::chrono::duration<double> duration = end - begin;
-
+    depth_completed.store(max_depth, std::memory_order_relaxed);
     last_root_score = best_score;
+    finish_search_metrics(best_move);
     return best_move;
 }
 
@@ -493,33 +497,28 @@ int MinimaxAgent::get_best_move_timed_smp(Board& board, bool is_black, int time_
     }
 
     // shared state
-    search_start = std::chrono::steady_clock::now();
-    last_progress_report = search_start;
-    progress_best_move.store(-1, std::memory_order_relaxed);
-    progress_depth.store(0, std::memory_order_relaxed);
-    progress_score.store(0.0f, std::memory_order_relaxed);
-    progress_score_valid.store(false, std::memory_order_relaxed);
-    time_limit = time_limit_ms;
-    search_aborted = false;
-    nodes_searched = 0;
-    tt_hits = 0;
+    reset_search_metrics(time_limit_ms);
 
     std::vector<int> root_moves = evaluator.get_valid_moves(board);
+    root_candidates_count = root_moves.size();
     if (root_moves.empty())
+    {
+        finish_search_metrics(-1);
         return -1;
+    }
     if (root_moves.size() == 1)
     {
-        progress_best_move.store(root_moves[0], std::memory_order_relaxed);
+        finish_search_metrics(root_moves[0]);
         return root_moves[0];
     }
 
     std::atomic<int> shared_best_move{root_moves[0]};
     progress_best_move.store(root_moves[0], std::memory_order_relaxed);
-    std::atomic<int> completed_depth{0};
     std::mutex result_mutex;
 
     auto worker = [&](unsigned int thread_id)
     {
+        workers_active.fetch_add(1, std::memory_order_relaxed);
         // each worker gets its own board copy so make/undo don't collide
         Board local = board;
         std::vector<int> moves = root_moves;
@@ -633,9 +632,9 @@ int MinimaxAgent::get_best_move_timed_smp(Board& board, bool is_black, int time_
 
             {
                 std::lock_guard<std::mutex> lock(result_mutex);
-                if (depth > completed_depth.load())
+                if (depth > depth_completed.load(std::memory_order_relaxed))
                 {
-                    completed_depth = depth;
+                    depth_completed.store(depth, std::memory_order_relaxed);
                     shared_best_move = local_best;
                 }
             }
@@ -646,6 +645,7 @@ int MinimaxAgent::get_best_move_timed_smp(Board& board, bool is_black, int time_
                 break;
             }
         }
+        workers_active.fetch_sub(1, std::memory_order_relaxed);
     };
 
     std::vector<std::thread> pool;
@@ -659,30 +659,56 @@ int MinimaxAgent::get_best_move_timed_smp(Board& board, bool is_black, int time_
     for (auto& th : pool)
         th.join();
 
-    time_limit = 0;
+    finish_search_metrics(shared_best_move.load());
     return shared_best_move.load();
+}
+
+void MinimaxAgent::reset_search_metrics(int time_limit_ms)
+{
+    search_start = std::chrono::steady_clock::now();
+    last_progress_report = search_start;
+    time_limit = time_limit_ms;
+    search_aborted = false;
+    nodes_searched.store(0, std::memory_order_relaxed);
+    tt_hits.store(0, std::memory_order_relaxed);
+    tt_probes.store(0, std::memory_order_relaxed);
+    alpha_beta_cutoffs.store(0, std::memory_order_relaxed);
+    depth_completed.store(0, std::memory_order_relaxed);
+    workers_active.store(0, std::memory_order_relaxed);
+    root_candidates_count = 0;
+    progress_best_move.store(-1, std::memory_order_relaxed);
+    progress_depth.store(0, std::memory_order_relaxed);
+    progress_score.store(0.0f, std::memory_order_relaxed);
+    progress_score_valid.store(false, std::memory_order_relaxed);
+}
+
+void MinimaxAgent::finish_search_metrics(int best_move)
+{
+    time_limit = 0;
+    workers_active.store(0, std::memory_order_relaxed);
+    progress_best_move.store(best_move, std::memory_order_relaxed);
+    report_progress(true);
 }
 
 /**
  * Reports the current search progress, including elapsed time, nodes searched, TT hits, current
- * depth, best move, and score.
- * The progress is reported only if debug output is enabled and at least 1000 nodes have been
- * searched since the last report.
+ * depth, best move, and score. A final snapshot bypasses the progress interval.
  * This function is called periodically during the search to provide real-time feedback on the
  * search status.
  * The metrics are reported in JSON format to std::cerr.
  * @note This function is thread-safe and uses a mutex to protect access to shared progress metrics.
  */
-void MinimaxAgent::report_progress()
+void MinimaxAgent::report_progress(bool finished)
 {
-    if (!g_config.debug_output || nodes_searched.load(std::memory_order_relaxed) % 1000 != 0)
+    if (!g_config.debug_output)
     {
         return;
     }
 
     std::lock_guard<std::mutex> lock(progress_mutex);
     const auto now = std::chrono::steady_clock::now();
-    if (now - last_progress_report < std::chrono::milliseconds(g_config.metrics_logging_interval))
+    if (!finished &&
+        now - last_progress_report < std::chrono::milliseconds(g_config.metrics_logging_interval))
     {
         return;
     }
@@ -693,9 +719,18 @@ void MinimaxAgent::report_progress()
     const auto nodes = nodes_searched.load(std::memory_order_relaxed);
     const int move = progress_best_move.load(std::memory_order_relaxed);
 
-    std::cerr << "[METRICS] {\"event\":\"search_progress\""
+    std::cerr << "[METRICS] {\"event\":\"" << (finished ? "search_finished" : "search_progress") << "\""
               << ",\"elapsed_ms\":" << elapsed_ms << ",\"nodes_total\":" << nodes
+              << ",\"tt_capacity_entries\":" << tt.size()
+              << ",\"tt_allocated_bytes\":" << tt.allocated_bytes()
+              << ",\"tt_occupancy_permille\":" << tt.occupancy_permille()
+              << ",\"tt_probes_total\":" << tt_probes.load(std::memory_order_relaxed)
               << ",\"tt_hits_total\":" << tt_hits.load(std::memory_order_relaxed)
+              << ",\"depth_completed\":" << depth_completed.load(std::memory_order_relaxed)
+              << ",\"workers_active\":" << workers_active.load(std::memory_order_relaxed)
+              << ",\"alpha_beta_cutoffs_total\":"
+              << alpha_beta_cutoffs.load(std::memory_order_relaxed)
+              << ",\"root_candidates_count\":" << root_candidates_count
               << ",\"nps\":" << nodes * 1000 / elapsed_ms
               << ",\"depth_current\":" << progress_depth.load(std::memory_order_relaxed)
               << ",\"best_move\":";

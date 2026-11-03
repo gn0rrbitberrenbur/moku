@@ -1,0 +1,28 @@
+[run]
+# Paths are relative to this TOML file. Each invocation creates a new run folder.
+output_dir = "benchmark-runs/"
+openings = "openings.json"
+move_time_ms = 1000
+timeout_tolerance_ms = 1000
+startup_timeout_ms = 10000
+metrics_interval_ms = 100
+depth = 12
+
+# Reference first, candidate second. No shell is used.
+[[engines]]
+name = "reference"
+command = ['']
+cwd = ".."
+
+[[engines]]
+name = "candidate"
+command = ['']
+cwd = ".."
+
+[sprt]
+enabled = true
+elo0 = 0.0
+elo1 = 10.0
+alpha = 0.05
+beta = 0.05
+min_pairs = 10

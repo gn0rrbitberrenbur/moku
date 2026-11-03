@@ -10,6 +10,7 @@ measurement, not standard tournament communication.
 | `D` | Alias for `DISPLAY` | Same as `DISPLAY` |
 | `HELP` | Print a short command summary | Lines prefixed with `MESSAGE` |
 | `BENCHMARK depth time_limit_ms` | Run predefined benchmark positions | Human-readable benchmark report |
+| `DEBUG_OUTPUT [interval_ms]` | Toggle stderr diagnostics and JSON search metrics | `DEBUG_OUTPUT True` or `DEBUG_OUTPUT False` |
 
 Command words are case-insensitive. Standard commands and their current
 limitations are described in [docsGomocupProtocol.md](docsGomocupProtocol.md).
@@ -67,9 +68,11 @@ it on normal completion. It uses separate boards and agents rather than
 replacing the protocol engine's current position.
 
 ## 5. DEBUG_OUTPUT
-The former `--debug-output` startup flag has been removed. Debug output defaults
-to disabled. The `cmd_debug_output()` handler takes no arguments and inverts
-`g_config.debug_output` on each call. It writes the resulting state to stdout:
+Debug output defaults to disabled. `DEBUG_OUTPUT [interval_ms]` inverts
+`g_config.debug_output` on each call. An optional positive integer sets the
+progress interval in milliseconds; omitting it retains the current interval
+(default 10 ms). Invalid arguments produce an `ERROR` reply without toggling.
+It writes the resulting state to stdout:
 
 ```text
 DEBUG_OUTPUT True
@@ -85,10 +88,13 @@ Conditional search and move-handling diagnostics remain on stderr. This flag
 does not suppress explicit `DISPLAY`, `HELP`, or benchmark output, and it is not
 a universal logging switch. `BENCHMARK` disables it without restoring its value.
 
-**Current limitation:** `process_command()` has no `DEBUG_OUTPUT` branch, so the
-handler is unreachable through stdin. Sending `DEBUG_OUTPUT` currently returns
-`UNKNOWN DEBUG_OUTPUT`. Registering the handler is required before runtime
-toggling can be used. This extension is not part of the standard Gomocup protocol.
+Search metrics use `[METRICS] ` followed by JSON on stderr. Periodic
+`search_progress` and final `search_finished` events include TT capacity, allocated
+bytes, occupancy, probes, hits, completed depth, active workers, alpha-beta
+cutoffs, and root candidate count. Final events bypass interval throttling.
+See [docsSearch.md](docsSearch.md) for field definitions. The Python
+[match runner](../../benchmarking/README.md) logs both the parsed object and raw
+output. This extension is not part of the standard Gomocup protocol.
 
 ## 6. Example Session and Limitations
 ```text

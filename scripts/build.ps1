@@ -5,6 +5,7 @@ $buildDir = Join-Path $repoRoot 'build'
 
 Write-Host "[INFO] Running full CMake configuration in build directory [$buildDir]." -ForegroundColor Green
 cmake -S $repoRoot -B $buildDir -DCMAKE_BUILD_TYPE=Release `
+    -DMOKU_BUILD_WASM=OFF `
     -DMOKU_BUILD_ENGINE=ON `
     -DMOKU_BUILD_TESTS=ON `
     -DMOKU_BUILD_PYTHON=ON `
@@ -32,3 +33,17 @@ if ($exitCode -ne 0)
 }
 
 Write-Host "[INFO] Full build completed successfully in [$buildDir]." -ForegroundColor Green
+
+$wasmBuildScript = Join-Path $PSScriptRoot 'build_wasm.ps1'
+Write-Host "[INFO] Starting the WebAssembly build." -ForegroundColor Green
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $wasmBuildScript
+$exitCode = $LASTEXITCODE
+if ($exitCode -ne 0)
+{
+    $red = "$([char]27)[31m"
+    $reset = "$([char]27)[0m"
+    [Console]::Error.WriteLine("${red}[ERROR] WebAssembly build failed (exit code $exitCode).${reset}")
+    exit $exitCode
+}
+
+Write-Host "[INFO] Full native and WebAssembly builds completed successfully." -ForegroundColor Green

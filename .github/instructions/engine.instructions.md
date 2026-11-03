@@ -61,12 +61,24 @@ the ownership list below are relative to the repository root.
   from any worker, while root score/candidate metadata retain their prior values.
   Check each entry point before consuming statistics.
 - SMP uses worker-local board copies, shared TT/counters/cancellation, and joined
-  helper threads. Treat TT slots, shared depth, and the evaluator's mutable positional
-  cache as synchronization-sensitive state. Use `g_config.cores=1` for serial checks.
+  helper threads. TT probe/store operations use striped mutexes; metrics use atomic
+  counters/gauges. Keep global configuration and positional-cache dimensions stable.
+  Use `g_config.cores=1` for serial checks.
 - Each agent owns a direct-mapped table with `2^23` slots. `size()` reports capacity.
   Zobrist generation uses seed 12345 and construction-time geometry. Incremental hash
   updates toggle a stone and side-to-move. Preserve mate-score ply normalization and
   exact/lower/upper bound handling when editing probe/store.
+- Empty TT slots use depth `-1`; hash-zero probes only hit occupied entries.
+  Occupancy counts filled slots once, including collision replacement, and resets
+  on `clear()` with no concurrent search. Allocated bytes measure entry-vector storage.
+- Debug search events use `[METRICS]` JSON on stderr. Preserve `search_progress` and
+  the interval-independent `search_finished` event on every search entry point,
+  including early returns. Include `tt_capacity_entries`, `tt_allocated_bytes`,
+  `tt_occupancy_permille`, `tt_probes_total`, `tt_hits_total`, `depth_completed`,
+  `workers_active`, `alpha_beta_cutoffs_total`, and `root_candidates_count`.
+  Search counters reset per call and aggregate SMP workers; TT occupancy persists.
+  Completed depth only advances after a full root iteration; final active workers
+  are zero. Consult `engine/docs/docsSearch.md` for metric semantics.
 - Keep search/evaluation hot paths allocation-conscious and avoid unnecessary board
   copies. Validate tactical decisions and state restoration after search changes.
 
@@ -106,19 +118,31 @@ CMake/CTest >=3.20 for `--test-dir` support. Run them from the repository root:
 
 ```sh
 cmake -S . -B build-engine -DCMAKE_BUILD_TYPE=Release -DMOKU_BUILD_ENGINE=ON -DMOKU_BUILD_TESTS=ON -DMOKU_BUILD_PYTHON=OFF -DMOKU_BUILD_NNUE=OFF
-cmake --build build-engine --config Release --target gomocup_moku extended_moku tests gomocup_protocol_tests
+cmake --build build-engine --config Release --target gomocup_moku extended_moku moku_tests gomocup_protocol_tests
 ctest --test-dir build-engine -C Release --output-on-failure --no-tests=error
 ```
 
 The core library contains board, coordinate conversion, evaluation, search, and TT
-sources. The active engine executables and test targets also compile their own source
-lists directly. Register additions in every affected list. Python and NNUE consume
+sources. Native protocol and test targets link this library through their engine
+libraries. Register core additions in its source list. Python and NNUE consume
 `moku::core`; changes to these APIs also require their focused checks.
 
 Executables are under `build-engine/engine/moku/`, with `Release/` for
 multi-configuration generators. GoogleTest discovers suite/case names. Use `ctest -N`
 to choose a narrow filter; use a stream-level extended-protocol smoke check for changes
 to extended dispatch. Concurrency changes require checks beyond serial protocol tests.
+
+The WebAssembly target is `extended_moku_wasm`. It requires an activated Emscripten
+SDK and a separate CMake tree:
+
+```sh
+emcmake cmake -S . -B build/wasm -DCMAKE_BUILD_TYPE=Release -DMOKU_BUILD_WASM=ON -DMOKU_BUILD_ENGINE=OFF -DMOKU_BUILD_TESTS=OFF -DMOKU_BUILD_PYTHON=OFF -DMOKU_BUILD_NNUE=OFF
+cmake --build build/wasm --config Release --target extended_moku_wasm
+```
+
+Use `scripts/build_wasm.ps1` or `scripts/build_wasm.sh` for the corresponding
+platform. The WASM outputs are under `build/wasm/engine/moku/`. The full build scripts
+also run this dedicated build after the native build and therefore require Emscripten.
 
 Follow root and `engine/.clang-format` formatting. Update affected module references,
 README content, and these instructions with current implementation facts in English.

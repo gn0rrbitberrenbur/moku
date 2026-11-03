@@ -24,6 +24,7 @@ build_dir="$repo_root/build"
 printf '%s[INFO] Running full CMake configuration in build directory [%s].%s\n' "$green" "$build_dir" "$reset"
 
 if cmake -S "$repo_root" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release \
+    -DMOKU_BUILD_WASM=OFF \
     -DMOKU_BUILD_ENGINE=ON \
     -DMOKU_BUILD_TESTS=ON \
     -DMOKU_BUILD_PYTHON=ON \
@@ -47,3 +48,14 @@ else
 fi
 
 printf '%s[INFO] Full build completed successfully in [%s].%s\n' "$green" "$build_dir" "$reset"
+
+printf '%s[INFO] Starting the WebAssembly build.%s\n' "$green" "$reset"
+if bash "$script_dir/build_wasm.sh"; then
+    :
+else
+    status=$?
+    printf '%s[ERROR] WebAssembly build failed (exit code %s).%s\n' "$red" "$status" "$reset" >&2
+    exit "$status"
+fi
+
+printf '%s[INFO] Full native and WebAssembly builds completed successfully.%s\n' "$green" "$reset"

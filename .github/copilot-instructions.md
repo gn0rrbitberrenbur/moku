@@ -19,6 +19,7 @@ Repository-relative paths:
 | `engine/moku/game/`, `engine/moku/eval/`, `engine/moku/search/`, `engine/moku/tt/` | Board, evaluation, search, hashing/cache |
 | `engine/moku/engine/` | Gomocup and extended stdin/stdout protocol handlers |
 | `engine/moku/benchmark/`, `engine/moku/tests/` | Benchmark workloads and engine GoogleTest suites |
+| `benchmarking/` | Standalone paired Python engine matches and raw/structured debug-metric logs |
 | `engine/docs/` | Module references; entry point `docsOverview.md` |
 | `engine/CMakeLists.txt` | Additional engine build description; inspect root routing before editing |
 | `nnue/generate_dataset/` | Self-play CLI, binary shard writer, NumPy reader, core contract tests |
@@ -35,6 +36,13 @@ Read the relevant scoped instructions before editing:
 - `.github/instructions/engine.instructions.md` for `engine/**`.
 - `.github/instructions/nnue_dataset_generation.instructions.md` for `nnue/**`.
 - `.github/instructions/python_bindings.instructions.md` for `python_bindings/**`.
+
+Search debug metrics are `[METRICS]` JSON on stderr, with periodic
+`search_progress` and unconditional final `search_finished` events when enabled.
+Keep engine fields and their semantics consistent with `engine/docs/docsSearch.md`.
+The standalone `benchmarking` runner retains all parsed metric fields together
+with decoded text and exact bytes. Verify logging with
+`python -m unittest benchmarking.tests.test_benchmarking.ProtocolTests -v`.
 
 ## Toolchain And Dependencies
 
@@ -54,7 +62,8 @@ Read the relevant scoped instructions before editing:
 ## Build And Test
 
 Run commands from the repository root. Each of `MOKU_BUILD_ENGINE`, `MOKU_BUILD_TESTS`,
-`MOKU_BUILD_PYTHON`, and `MOKU_BUILD_NNUE` defaults to `ON`. The local core is built
+`MOKU_BUILD_PYTHON`, and `MOKU_BUILD_NNUE` defaults to `ON`. `MOKU_BUILD_WASM` defaults
+to `OFF`; configure WASM separately with Emscripten. The local core is built
 independently of these feature switches. `MOKU_WARNINGS_AS_ERRORS` defaults to `OFF`.
 For a top-level single-configuration build, the default configuration is `Release`.
 
@@ -86,11 +95,15 @@ Engine binaries reside under `<build-dir>/engine/moku/`; the NNUE executable res
 under `<build-dir>/nnue/generate_dataset/`. Multi-configuration generators add a
 configuration subdirectory, for example `Release/`, and Windows uses `.exe`.
 
-`scripts/build.ps1` and `scripts/build.sh` configure and build all features in `build/`.
-Specialized build scripts reconfigure that same directory with their own feature
-switches. Test runners operate on the existing build directory. Check each script's
-options, target, CTest expression, and generator configuration before relying on it;
-the commands above describe the active root target graph.
+`scripts/build.ps1` and `scripts/build.sh` build the native project in `build/` and
+then invoke the matching WebAssembly script. The scripts require an activated
+Emscripten SDK environment. `scripts/build_wasm.ps1` and `scripts/build_wasm.sh`
+configure `build/wasm` and build only `extended_moku_wasm`, keeping the Emscripten
+cache separate from the native cache. Activate `emsdk_env.bat` in Command Prompt
+before launching PowerShell on Windows; source `emsdk_env.sh` in the build shell on
+Linux or macOS. Test runners operate on the existing native build directory. Check
+each script's options, target, CTest expression, and generator configuration before
+relying on it; the commands above describe the active root target graph.
 
 The workflow declares tag (`v*`) and manual triggers, Ubuntu/Windows engine builds,
 artifact uploads, and a release job. Run relevant tests explicitly as part of local

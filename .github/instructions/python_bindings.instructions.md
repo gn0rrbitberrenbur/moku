@@ -105,9 +105,12 @@ NumPy board copies own their storage. `RootCandidate`, `GameConfig`, and `BenchR
 are obtained through their owning operations. Review STL conversion and lifetime
 policies together before changing reference-returning APIs.
 
-Binding calls retain the GIL. Internal SMP still launches C++ worker threads; global
-configuration, evaluator caches, shared TT slots, and shared search depth require
-explicit synchronization analysis. Use one engine core for deterministic serial
+Binding calls retain the GIL. Internal SMP still launches C++ worker threads.
+TT probe/store access uses striped mutexes, and search counters/depth gauges use
+atomics. Keep global configuration and evaluator-cache dimensions stable during
+search. Debug metrics and per-search counter resets follow `engine/docs/docsSearch.md`;
+the standalone match runner logs protocol metrics without importing `pymoku`.
+Use one engine core for deterministic serial
 smoke checks. Any GIL-release change requires a lifetime/configuration/thread-safety
 design and focused concurrency checks.
 

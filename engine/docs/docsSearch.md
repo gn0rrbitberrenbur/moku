@@ -77,10 +77,9 @@ zero, can determine the returned move.
 Workers are joined before the call returns. This path does not populate
 `last_root_score` or `last_root_candidates` as the single-threaded timed path does.
 
-**Concurrency limitation:** Table entries are ordinary objects accessed without
-locking or atomics, and the recursive `current_depth` member is also written
-by multiple workers. Do not describe the current SMP implementation as
-data-race-free. Use `cores = 1` when avoiding this parallel path is required.
+TT probe/store operations use striped mutexes; search counters and progress
+gauges use atomics. Global configuration and the evaluator's positional cache
+still require stable board dimensions and exclusive configuration changes.
 
 ## 5. Root Results and Statistics
 `RootCandidate` contains:
@@ -97,12 +96,46 @@ can make some values bounds rather than independent exact full-window scores.
 The vector is not a sorted probability distribution.
 
 Fixed-depth search publishes the root score but not a fresh candidate vector.
-The SMP path does not refresh either result field. Early returns can also
-leave counters from a previous search, so do not assume every accessor is
-fresh after every entry point. Table hits include successful probes even when
-the cached depth is insufficient for a cutoff.
+The SMP path does not refresh either result field. Search counters reset on
+every entry point, including early returns. Table hits include successful probes
+even when the cached depth is insufficient for a cutoff.
 
-## 6. Usage Example
+## 6. Debug Metrics
+With `g_config.debug_output` enabled, all search entry points write
+`[METRICS] ` followed by one JSON object per line to stderr. Progress is checked
+approximately every 1000 recursive nodes and rate-limited by
+`g_config.metrics_logging_interval`. Every search call also emits a
+`search_finished` event, bypassing that interval, including empty and
+sole-candidate returns. Periodic events use `search_progress`.
+
+| Field | Contract |
+| --- | --- |
+| `tt_capacity_entries` | Allocated TT slots; currently 8388608 |
+| `tt_allocated_bytes` | TT vector capacity times `sizeof(TTEntry)`; excludes object, locks, Zobrist arrays, and allocator overhead |
+| `tt_occupancy_permille` | Integer floor of occupied slots times 1000 divided by slot count; range 0 through 1000 |
+| `tt_probes_total` | Probe attempts since this search began, aggregated across workers |
+| `tt_hits_total` | Matching occupied entries found since this search began, regardless of cached depth |
+| `depth_completed` | Deepest fully completed root iteration; in SMP, from any worker |
+| `workers_active` | Workers currently executing search; zero in the final event |
+| `alpha_beta_cutoffs_total` | Closed-window cutoffs in recursive move loops and after applying TT bounds; exact-value TT returns are excluded |
+| `root_candidates_count` | Number of generated root candidates before search, independent of the stored root result vector |
+
+TT contents and occupancy persist between searches until `clear_tt()`.
+Other counters and gauges reset per search. A timed sole-candidate return
+performs no iteration and reports completed depth zero. A fixed-depth search
+reports its configured depth only after all root candidates finish.
+
+Existing fields remain: `elapsed_ms` (minimum 1), `nodes_total`, `nps`,
+`depth_current`, `best_move` (`{"x":...,"y":...}` or null), and `score` (number
+or null). `depth_current` tracks the attempted iteration of worker zero in SMP;
+another worker can complete a deeper iteration. Score is the latest worker-zero
+progress score in SMP, not necessarily the returned worker's score.
+Live atomic snapshots are observational, not a transaction over all counters.
+
+The [Python match runner](../../benchmarking/README.md) retains each metric object
+and its original output bytes.
+
+## 7. Usage Example
 ```cpp
 #include "config.hpp"
 #include "search/minimax.hpp"
@@ -123,7 +156,7 @@ Configure board size before constructing the agent: its table initializes
 Zobrist keys using the active dimensions. Do not share an agent across unrelated
 concurrent search calls or resize global dimensions during a search.
 
-## 7. Implementation Locations
+## 8. Implementation Locations
 - [minimax.hpp](../moku/search/minimax.hpp): agent interface and root result type.
 - [minimax.cpp](../moku/search/minimax.cpp): fixed, timed, recursive, and SMP search.
 - [Evaluation reference](docsEvaluation.md): candidate and score behavior.

@@ -7,6 +7,11 @@
 
 #include <gtest/gtest.h>
 
+#include <iostream>
+#include <regex>
+#include <sstream>
+#include <thread>
+
 // Test cases for the algebraic_to_index function
 TEST(AlgebraicConversion, ValidInputs)
 {
@@ -1298,4 +1303,219 @@ TEST(TranspositionTableTest, ClearRemovesEntries)
 
     tt.clear();
     EXPECT_FALSE(tt.probe(hash, entry, 0));
+}
+
+TEST(TranspositionTableTest, OccupancyTracksSlotsAndClear)
+{
+    TranspositionTable tt;
+    EXPECT_EQ(tt.allocated_bytes(), tt.size() * sizeof(TTEntry));
+    EXPECT_EQ(tt.occupancy_permille(), 0u);
+    TTEntry entry;
+    EXPECT_FALSE(tt.probe(0, entry, 0));
+
+    const size_t count = (tt.size() + 999) / 1000;
+    for (size_t i = 0; i < count; ++i)
+        tt.store(i, 1.0f, 2, TTEntry::EXACT, 1, 0);
+    EXPECT_TRUE(tt.probe(0, entry, 0));
+    EXPECT_EQ(tt.occupancy_permille(), 1u);
+    for (size_t i = 0; i < count; ++i)
+    {
+        tt.store(i, 2.0f, 1, TTEntry::EXACT, 2, 0);
+        tt.store(i + tt.size(), 3.0f, 1, TTEntry::EXACT, 3, 0);
+    }
+    EXPECT_EQ(tt.occupancy_permille(), 1u);
+    tt.clear();
+    EXPECT_EQ(tt.occupancy_permille(), 0u);
+    EXPECT_EQ(tt.allocated_bytes(), tt.size() * sizeof(TTEntry));
+    EXPECT_FALSE(tt.probe(0, entry, 0));
+}
+
+TEST(TranspositionTableTest, ConcurrentStoresCountEachSlotOnce)
+{
+    TranspositionTable tt;
+    const size_t count = (tt.size() + 999) / 1000;
+    std::vector<std::thread> workers;
+    for (int worker = 0; worker < 4; ++worker)
+    {
+        workers.emplace_back([&]()
+        {
+            for (size_t i = 0; i < count; ++i)
+            {
+                tt.store(i, 7.0f, 2, TTEntry::EXACT, 1, 0);
+                TTEntry entry;
+                EXPECT_TRUE(tt.probe(i, entry, 0));
+                EXPECT_EQ(entry.depth, 2);
+                EXPECT_FLOAT_EQ(entry.score, 7.0f);
+            }
+        });
+    }
+    for (auto& worker : workers)
+        worker.join();
+    EXPECT_EQ(tt.occupancy_permille(), 1u);
+}
+
+class SearchMetricsTest : public ::testing::Test
+{
+protected:
+    GameConfig saved_config;
+    std::ostringstream diagnostics;
+    std::streambuf* saved_cerr = nullptr;
+
+    void SetUp() override
+    {
+        saved_config = g_config;
+        g_config.board_size = 5;
+        g_config.cores = 1;
+        g_config.debug_output = true;
+        g_config.metrics_logging_interval = 60000;
+        saved_cerr = std::cerr.rdbuf(diagnostics.rdbuf());
+    }
+
+    void TearDown() override
+    {
+        std::cerr.rdbuf(saved_cerr);
+        g_config = saved_config;
+    }
+
+    std::string final_metrics()
+    {
+        const std::string output = diagnostics.str();
+        const size_t start = output.rfind("[METRICS] ");
+        EXPECT_NE(start, std::string::npos);
+        if (start == std::string::npos)
+            return "";
+        const std::string metrics = output.substr(start, output.find('\n', start) - start);
+        EXPECT_NE(metrics.find("\"event\":\"search_finished\""), std::string::npos);
+        return metrics;
+    }
+
+    long long metric(const std::string& json, const std::string& name)
+    {
+        std::smatch match;
+        const std::regex pattern("\"" + name + "\":([0-9]+)([,}])");
+        EXPECT_TRUE(std::regex_search(json, match, pattern)) << name << ": " << json;
+        if (match.empty())
+            return -1;
+        return std::stoll(match[1].str());
+    }
+
+    void check_metrics(const std::string& json, const MinimaxAgent& agent, int candidates)
+    {
+        EXPECT_EQ(metric(json, "tt_capacity_entries"), 1 << 23);
+        EXPECT_EQ(metric(json, "tt_allocated_bytes"), (1 << 23) * sizeof(TTEntry));
+        EXPECT_GE(metric(json, "tt_occupancy_permille"), 0);
+        EXPECT_LE(metric(json, "tt_occupancy_permille"), 1000);
+        EXPECT_EQ(metric(json, "tt_probes_total"), agent.get_nodes_searched());
+        EXPECT_EQ(metric(json, "tt_hits_total"), agent.get_tt_hits());
+        EXPECT_LE(metric(json, "tt_hits_total"), metric(json, "tt_probes_total"));
+        EXPECT_LE(metric(json, "alpha_beta_cutoffs_total"), metric(json, "tt_probes_total"));
+        EXPECT_EQ(metric(json, "workers_active"), 0);
+        EXPECT_EQ(metric(json, "root_candidates_count"), candidates);
+    }
+};
+
+TEST_F(SearchMetricsTest, FixedDepthBothColorsAndCutoffs)
+{
+    Board board;
+    board.make_move(board.pos(2, 2), true);
+    MinimaxAgent agent(3);
+    const auto black = board.black;
+    const auto white = board.white;
+    for (bool is_black : {true, false})
+    {
+        EXPECT_GE(agent.get_best_move(board, is_black), 0);
+        const std::string json = final_metrics();
+        check_metrics(json, agent, 24);
+        EXPECT_EQ(metric(json, "depth_completed"), 3);
+        EXPECT_GT(metric(json, "alpha_beta_cutoffs_total"), 0);
+        EXPECT_EQ(board.black, black);
+        EXPECT_EQ(board.white, white);
+    }
+}
+
+TEST_F(SearchMetricsTest, TimedSerialAndSmpCompletedDepth)
+{
+    Board board;
+    board.make_move(board.pos(2, 2), true);
+    MinimaxAgent agent(2);
+    for (unsigned int cores : {1u, 2u})
+    {
+        g_config.cores = cores;
+        EXPECT_GE(agent.get_best_move_timed_smp(board, false, 60000), 0);
+        const std::string json = final_metrics();
+        check_metrics(json, agent, 24);
+        EXPECT_EQ(metric(json, "depth_completed"), 2);
+    }
+}
+
+TEST_F(SearchMetricsTest, EarlyReturnsResetCounters)
+{
+    MinimaxAgent agent(2);
+    Board board;
+    board.make_move(board.pos(2, 2), true);
+    agent.get_best_move(board, false);
+    EXPECT_GT(agent.get_nodes_searched(), 0);
+    for (unsigned int cores : {1u, 2u})
+    {
+        g_config.cores = cores;
+        Board empty;
+        EXPECT_EQ(agent.get_best_move_timed_smp(empty, true, 100), empty.pos(2, 2));
+        std::string json = final_metrics();
+        check_metrics(json, agent, 1);
+        EXPECT_EQ(metric(json, "tt_probes_total"), 0);
+        EXPECT_EQ(metric(json, "depth_completed"), 0);
+
+        Board full;
+        for (int i = 0; i < g_config.squares(); ++i)
+            full.make_move(i, true);
+        EXPECT_EQ(agent.get_best_move_timed_smp(full, false, 100), -1);
+        json = final_metrics();
+        check_metrics(json, agent, 0);
+        EXPECT_EQ(metric(json, "depth_completed"), 0);
+        EXPECT_NE(json.find("\"best_move\":null"), std::string::npos);
+    }
+    g_config.debug_output = false;
+    diagnostics.str("");
+    Board empty;
+    agent.get_best_move_timed(empty, true, 100);
+    EXPECT_TRUE(diagnostics.str().empty());
+}
+
+TEST_F(SearchMetricsTest, LiveWorkersAndTimedDepth)
+{
+    g_config.board_size = 7;
+    g_config.metrics_logging_interval = 1;
+    Board board;
+    board.make_move(board.pos(3, 3), true);
+    MinimaxAgent agent(20);
+    for (unsigned int cores : {1u, 2u})
+    {
+        g_config.cores = cores;
+        diagnostics.str("");
+        EXPECT_GE(agent.get_best_move_timed_smp(board, false, 200), 0);
+        const std::string json = final_metrics();
+        check_metrics(json, agent, 24);
+        EXPECT_LT(metric(json, "depth_completed"), 20);
+        if (cores == 1)
+        {
+            EXPECT_LE(metric(json, "depth_completed"), metric(json, "depth_current"));
+        }
+
+        std::istringstream lines(diagnostics.str());
+        std::string line;
+        int progress_events = 0;
+        while (std::getline(lines, line))
+        {
+            if (line.find("\"event\":\"search_progress\"") == std::string::npos)
+                continue;
+            ++progress_events;
+            EXPECT_GE(metric(line, "workers_active"), 1);
+            EXPECT_LE(metric(line, "workers_active"), cores);
+            EXPECT_EQ(metric(line, "root_candidates_count"), 24);
+            EXPECT_LT(metric(line, "depth_completed"), 20);
+            EXPECT_GE(metric(line, "tt_probes_total"), 0);
+            EXPECT_GE(metric(line, "alpha_beta_cutoffs_total"), 0);
+        }
+        EXPECT_GT(progress_events, 0);
+    }
 }

@@ -10,6 +10,7 @@ The repository is organized as a CMake project and supports building engine bina
 ```
 moku/
 ├── CMakeLists.txt - top-level CMake configuration and project-wide options
+├── benchmarking/ — Paired engine matches, protocol logging, and Elo/SPRT strength comparison
 ├── cmake/ - shared CMake modules for compiler warnings and dependencies
 ├── cli/ - command-line application and terminal UI for playing and testing the engine
 │   └── moku-cli/
@@ -51,6 +52,7 @@ The project provides separate convenience scripts for each platform. These scrip
 - `bash scripts/build_extended_moku.sh` - Builds the extended protocol executable
 - `bash scripts/build_gomocup_moku.sh` - Builds the Gomocup protocol executable
 - `bash scripts/build_nnue_gen.sh` - Builds the NNUE dataset generator
+- `bash scripts/build_wasm.sh` - Builds the Webassembly target
 
 #### Test targets
 - `bash scripts/build_moku_tests.sh` - Builds the core engine test target
@@ -72,6 +74,7 @@ The project provides separate convenience scripts for each platform. These scrip
 - `./scripts/build_extended_moku.ps1` - Builds the extended protocol executable
 - `./scripts/build_gomocup_moku.ps1` - Builds the Gomocup protocol executable
 - `./scripts/build_nnue_gen.ps1` - Builds the NNUE dataset generator
+- `./scripts/build_wasm.ps1` - Builds the Webassembly target
 
 #### Test targets
 - `./scripts/build_moku_tests.ps1` - Builds the core engine test target
@@ -97,3 +100,14 @@ For a standard local build on Windows PowerShell:
 ./scripts/build.ps1
 ./scripts/run_all_tests.ps1
 ```
+
+## WebAssembly build
+The project can build the `extended_moku` engine for WebAssembly using Emscripten.
+
+Make sure you have Emscriptem installed on your system ([See](https://emscripten.org/docs/getting_started/downloads.html))
+
+The full build scripts also run this build, so activate the Emscripten SDK environment before running `scripts/build.ps1` or `scripts/build.sh`.
+
+The dedicated `scripts/build_wasm.ps1` and `scripts/build_wasm.sh` scripts build only the WebAssembly target.
+
+Both use `build/wasm` as a separate CMake build directory, the generated `extended_moku_wasm.js` and `.wasm` files are under `build/wasm/engine/moku/`.

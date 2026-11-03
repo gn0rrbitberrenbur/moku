@@ -1,164 +1,87 @@
-cmake_minimum_required(VERSION 3.10)
-
-project(moku VERSION 0.0.8)
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-include(FetchContent)
 find_package(Threads REQUIRED)
 
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release)
-endif()
-
-# Platform specific flags
-if(WIN32)
-    add_definitions(-D_WIN32)
-elseif(UNIX AND NOT APPLE)
-    add_definitions(-DLINUX)
-elseif(APPLE)
-    add_definitions(-DMACOS)
-endif()
-
-if(MSVC)
-    add_compile_options(/W4)
-else()
-    add_compile_options(-Wall -Wextra -pedantic)
-endif()
-
-set(MOKU_INCLUDE_DIRS
-    ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
-# build core library
+# Core library (board, evaluation, search, transposition table, benchmark)
 add_library(moku_core STATIC
     game/tools/algebraic_to_index.cpp
     game/board.cpp
     eval/evaluation.cpp
     search/minimax.cpp
     tt/transposition_table.cpp
+    benchmark/benchmark.cpp
 )
-
 add_library(moku::core ALIAS moku_core)
 
+target_include_directories(moku_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+
+# The version from the VERSION file is passed as a compile definition, so config.hpp can use
+# MOKU_VERSION directly. PUBLIC makes it available to every target that includes config.hpp.
+target_compile_definitions(moku_core PUBLIC MOKU_VERSION="${MOKU_VERSION}")
+target_compile_features(moku_core PUBLIC cxx_std_17)
+target_link_libraries(moku_core PUBLIC Threads::Threads)
+
+# PIC is required because the static library is linked into the pymoku shared module.
 set_target_properties(moku_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-target_include_directories(moku_core PUBLIC
-    ${MOKU_INCLUDE_DIRS}
-)
+moku_enable_warnings(moku_core)
 
-target_compile_features(moku_core PUBLIC cxx_std_17)
-
-# --- Engine executables ---------------------------------------------------------
-# Root builds define MOKU_BUILD_ENGINE and MOKU_BUILD_TESTS. The old
-# CMAKE_SOURCE_DIR == PROJECT_SOURCE_DIR guard prevented the targets from being
-# created when the engine was added as a subdirectory.
-if(NOT DEFINED MOKU_BUILD_ENGINE)
-    set(MOKU_BUILD_ENGINE ON)
+# Gomocup protocol engine (needed by tests)
+if(MOKU_BUILD_ENGINE OR MOKU_BUILD_TESTS)
+    add_library(moku_gomocup_engine STATIC engine/gomocup_protocol/gomocup_engine.cpp)
+    target_link_libraries(moku_gomocup_engine PUBLIC moku::core)
+    moku_enable_warnings(moku_gomocup_engine)
 endif()
 
-if(NOT DEFINED MOKU_BUILD_TESTS)
-    set(MOKU_BUILD_TESTS ON)
-endif()
-
+# Executables
 if(MOKU_BUILD_ENGINE)
-    # build executable (gomocup protocol)
-    add_executable(gomocup_moku
-        game/tools/algebraic_to_index.cpp
-        main_gomocup.cpp
-        game/board.cpp
-        engine/gomocup_protocol/gomocup_engine.cpp
-        eval/evaluation.cpp
-        search/minimax.cpp
-        tt/transposition_table.cpp
-    )
+    add_executable(gomocup_moku main_gomocup.cpp)
+    target_link_libraries(gomocup_moku PRIVATE moku_gomocup_engine)
+    moku_enable_warnings(gomocup_moku)
 
-    target_include_directories(gomocup_moku PRIVATE ${MOKU_INCLUDE_DIRS})
+    add_library(moku_extended_engine STATIC engine/extended_protocol/extended_protocol.cpp)
+    target_link_libraries(moku_extended_engine PUBLIC moku::core)
+    moku_enable_warnings(moku_extended_engine)
 
-    find_package(Threads REQUIRED)
-    target_link_libraries(gomocup_moku PRIVATE Threads::Threads)
-
-    if(WIN32)
-        set_target_properties(gomocup_moku PROPERTIES OUTPUT_NAME "gomocup_moku")
-    else()
-        set_target_properties(gomocup_moku PROPERTIES OUTPUT_NAME "gomocup_moku")
-    endif()
-
-    # build executable (extended protocol)
-    add_executable(extended_moku
-        game/tools/algebraic_to_index.cpp
-        main_extended_protocol.cpp
-        game/board.cpp
-        engine/extended_protocol/extended_protocol.cpp
-        benchmark/benchmark.cpp
-        eval/evaluation.cpp
-        search/minimax.cpp
-        tt/transposition_table.cpp
-    )
-
-    target_include_directories(extended_moku PRIVATE ${MOKU_INCLUDE_DIRS})
-
-    find_package(Threads REQUIRED)
-    target_link_libraries(extended_moku PRIVATE Threads::Threads)
-
-    if(WIN32)
-        set_target_properties(extended_moku PROPERTIES OUTPUT_NAME "extended_moku")
-    else()
-        set_target_properties(extended_moku PROPERTIES OUTPUT_NAME "extended_moku")
-    endif()
+    add_executable(extended_moku main_extended_protocol.cpp)
+    target_link_libraries(extended_moku PRIVATE moku_extended_engine)
+    moku_enable_warnings(extended_moku)
 endif()
 
-# --- Tests --------------------------------------------------------------------
+# WebAssembly engine
+if(MOKU_BUILD_WASM)
+    if(NOT EMSCRIPTEN)
+        message(FATAL_ERROR
+            "MOKU_BUILD_WASM requires Emscripten. Configure with emcmake."
+        )
+    endif()
+
+    add_executable(extended_moku_wasm
+        wasm_entry.cpp
+        engine/extended_protocol/extended_protocol.cpp
+    )
+    target_link_libraries(extended_moku_wasm PRIVATE moku::core)
+    moku_enable_warnings(extended_moku_wasm)
+
+    target_link_options(extended_moku_wasm PRIVATE
+        --bind
+        --no-entry
+        "-sMODULARIZE=1"
+        "-sEXPORT_ES6=1"
+        "-sALLOW_MEMORY_GROWTH=1"
+    )
+    set_target_properties(extended_moku_wasm PROPERTIES SUFFIX ".js")
+endif()
+
+# Tests
 if(MOKU_BUILD_TESTS)
-    FetchContent_Declare(
-        googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG v1.14.0
-    )
-    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(googletest)
-
-    enable_testing()
-
-    # Tests
-    file(GLOB TEST_SOURCES "tests/tests.cpp")
-    add_executable(tests
-        ${TEST_SOURCES}
-        game/tools/algebraic_to_index.cpp
-        benchmark/benchmark.cpp
-        game/board.cpp
-        eval/evaluation.cpp
-        search/minimax.cpp
-        tt/transposition_table.cpp
-        engine/gomocup_protocol/gomocup_engine.cpp
-    )
-
-    target_include_directories(tests PRIVATE ${MOKU_INCLUDE_DIRS})
-    target_link_libraries(tests PRIVATE gtest gtest_main Threads::Threads)
-
-    file(GLOB TEST_SOURCES "tests/gomocup_protocol_test.cpp")
-
-    add_executable(gomocup_protocol_tests
-        ${TEST_SOURCES}
-        game/board.cpp
-        eval/evaluation.cpp
-        search/minimax.cpp
-        tt/transposition_table.cpp
-        engine/gomocup_protocol/gomocup_engine.cpp
-    )
-
-    target_include_directories(gomocup_protocol_tests PRIVATE
-        ${MOKU_INCLUDE_DIRS}
-    )
-
-    target_link_libraries(gomocup_protocol_tests PRIVATE
-        gtest
-        gtest_main
-        Threads::Threads
-    )
-
     include(GoogleTest)
-    gtest_discover_tests(tests DISCOVERY_TIMEOUT 30)
+
+    add_executable(moku_tests tests/tests.cpp)
+    target_link_libraries(moku_tests PRIVATE moku_gomocup_engine GTest::gtest_main)
+    moku_enable_warnings(moku_tests)
+    gtest_discover_tests(moku_tests DISCOVERY_TIMEOUT 30)
+
+    add_executable(gomocup_protocol_tests tests/gomocup_protocol_test.cpp)
+    target_link_libraries(gomocup_protocol_tests PRIVATE moku_gomocup_engine GTest::gtest_main)
+    moku_enable_warnings(gomocup_protocol_tests)
     gtest_discover_tests(gomocup_protocol_tests DISCOVERY_TIMEOUT 30)
 endif()

@@ -34,6 +34,8 @@ memory cost: approximately `TT_SIZE * sizeof(TTEntry)`, plus overhead.
 | `store(hash, score, depth, flag, best_move, ply)` | Writes an entry under the replacement policy |
 | `clear()` | Replaces every slot with a default entry |
 | `size()` | Returns allocated slots, not occupied entries |
+| `allocated_bytes()` | Returns vector capacity times `sizeof(TTEntry)`, excluding metadata and allocator overhead |
+| `occupancy_permille()` | Returns integer floor of occupied slots times 1000 divided by capacity |
 
 For `update_hash()`, the boolean means the color of the stone being toggled;
 the implementation names it `is_black`. Because XOR is reversible, the same
@@ -58,8 +60,9 @@ accepting the command does not rebuild their agent's table.
 the stored depth. Thus a different colliding position can replace a deeper entry;
 the depth preference only protects entries with the same key.
 
-`probe()` checks the full key but does not decide whether the depth or flag is
-sufficient for a search cutoff. The search layer performs that decision.
+`probe()` requires an occupied slot and a matching full key but does not decide
+whether the depth or flag is sufficient for a search cutoff. The search layer
+performs that decision.
 
 Scores at or beyond `+90000` or `-90000` are treated as mate-like values.
 Storage normalizes them with the supplied ply, and probing adjusts them for
@@ -78,13 +81,17 @@ TTEntry entry;
 const bool found = table.probe(hash, entry, 0);
 ```
 
-Moves and dimensions must already be valid. The table does not validate move
-legality or provide thread-safe entry access. The SMP search currently shares
-these ordinary entries without synchronization.
+Moves and dimensions must already be valid; stored depths are nonnegative.
+The table does not validate move legality. Probe/store operations synchronize
+entry access using 256 striped mutexes. An atomic occupancy counter increments
+only when a store fills an empty slot; updates and collision replacements leave
+it unchanged. `clear()` requires no concurrent search and resets occupancy
+without releasing capacity.
 
-Default entries have key zero and depth `-1`; there is no separate occupancy
-flag. A probe for hash zero can therefore match a cleared slot. Consumers must
-not equate every key match with a usable completed search result.
+Default entries have depth `-1`, which marks an empty slot. A probe for hash zero
+misses a cleared slot and succeeds after a real hash-zero entry is stored.
+Debug search metrics expose capacity, allocated vector bytes, and occupancy;
+see [docsSearch.md](docsSearch.md).
 
 ## 6. Implementation Locations
 - [transposition_table.hpp](../moku/tt/transposition_table.hpp): entry type, capacity, and API.
