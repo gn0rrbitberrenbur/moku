@@ -28,6 +28,7 @@ jobs:
         shell: bash
         run: |
           cmake -S . -B build \
+            -G "Ninja" \
             -DCMAKE_BUILD_TYPE=Release \
             -DMOKU_BUILD_ENGINE=ON \
             -DMOKU_BUILD_TESTS=OFF \
