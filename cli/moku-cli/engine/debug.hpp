@@ -20,6 +20,14 @@ struct SearchMetrics
     std::uint64_t hits = 0;
     std::uint64_t nps = 0;
     std::uint64_t depth = 0;
+    std::optional<std::uint64_t> tt_capacity_entries;
+    std::optional<std::uint64_t> tt_allocated_bytes;
+    std::optional<std::uint64_t> tt_occupancy_permille;
+    std::optional<std::uint64_t> tt_probes_total;
+    std::optional<std::uint64_t> depth_completed;
+    std::optional<std::uint64_t> workers_active;
+    std::optional<std::uint64_t> alpha_beta_cutoffs_total;
+    std::optional<std::uint64_t> root_candidates_count;
     std::optional<Move> best;
     std::string score = "null";
 };

@@ -138,6 +138,44 @@ Shutdown and logging failures abort the run rather than silently dropping data.
 The runner manages the launched engine processes, not descendant process trees.
 Use direct engine executables rather than wrappers that leave detached children.
 
+### Notebook cancellation
+
+[The live notebook](benchmark_runs/2026_11_05_v0_0_9.ipynb) starts the benchmark
+in its plotting cell. Interrupting that cell sets a `threading.Event` and waits
+for the benchmark thread to finish cleanup. Run the setup and preparation cells
+before starting another match.
+
+The Python API accepts an optional keyword-only `stop_event`:
+
+```python
+from threading import Event
+from benchmarking.src.runner import RunCancelled, run
+
+stop_event = Event()
+# Pass the event to the worker; the notebook calls stop_event.set() on interruption.
+try:
+    folder = run(config, progress_path=metrics_path, stop_event=stop_event)
+except RunCancelled:
+    print("Benchmark cancelled; engine processes and logs are closed.")
+```
+
+The runner checks cancellation before starting engines, while sending protocol
+commands, between games, and at intervals of at most 100 ms while waiting for
+responses, including initialization and compatibility probes. Cancellation is
+separate from an engine failure: the active game is interrupted, not scored as a
+technical loss. Completed games remain in the summary, and only complete pairs
+participate in Elo/SPRT calculations. The manifest and summary record
+`status: "interrupted"`; the manifest records `stop_reason: "cancelled"`.
+`RunCancelled` propagates after cleanup and log finalization.
+
+Shutdown sends `END` even when cancellation is requested and uses the existing
+bounded termination/kill waits. Cleanup can therefore take longer than the
+cancellation polling interval. The caller must set the event in a `finally`
+block and join its worker thread; interrupting a notebook cell alone does not
+signal a background thread. A forced kernel termination, a second interruption
+during cleanup, or detached descendants are outside this cooperative contract.
+Calls without `stop_event` retain the normal CLI behavior.
+
 ## Output
 Every invocation creates its own folder:
 

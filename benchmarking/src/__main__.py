@@ -33,7 +33,6 @@ def main() -> int:
     if args.config is None:
         parser.error("a TOML configuration is required")
     try:
-        folder = run(load_config(args.config))
         folder = run(load_config(args.config), progress_path=args.progress)
     except KeyboardInterrupt:
         print("Interrupted; completed logs and run status are preserved.", file=sys.stderr)

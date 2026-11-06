@@ -30,6 +30,15 @@ class EngineFailure(Exception):
         self.reason = reason
 
 
+class RunCancelled(Exception):
+    """Raised after a cooperative stop request; engine cleanup still runs."""
+
+
+def check_cancelled(stop_event: threading.Event | None) -> None:
+    if stop_event is not None and stop_event.is_set():
+        raise RunCancelled("Benchmark stop requested")
+
+
 class EventLog:
     """Stream one JSON document, flushing every event and finalizing after pipe drainage."""
 
@@ -79,9 +88,13 @@ class EventLog:
 
 
 class Engine:
-    def __init__(self, config: EngineConfig, log: EventLog) -> None:
+    def __init__(
+        self, config: EngineConfig, log: EventLog, stop_event: threading.Event | None = None,
+    ) -> None:
+        check_cancelled(stop_event)
         self.config = config
         self.log = log
+        self.stop_event = stop_event
         self.ply: int | None = None
         self.responses: queue.Queue[str | EngineFailure] = queue.Queue()
         self.threads: list[threading.Thread] = []
@@ -133,6 +146,8 @@ class Engine:
             pipe.close()
 
     def send(self, command: str) -> None:
+        if command != "END":
+            check_cancelled(self.stop_event)
         self.log.event(self.config.name, "stdin", self.ply, text=command + "\r\n")
         try:
             assert self.process.stdin is not None
@@ -142,13 +157,19 @@ class Engine:
             raise EngineFailure("crash", f"{self.config.name}: cannot write: {exc}") from exc
 
     def receive(self, deadline: float) -> str:
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            raise EngineFailure("timeout", f"{self.config.name}: response deadline exceeded")
-        try:
-            response = self.responses.get(timeout=remaining)
-        except queue.Empty as exc:
-            raise EngineFailure("timeout", f"{self.config.name}: response deadline exceeded") from exc
+        while True:
+            check_cancelled(self.stop_event)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise EngineFailure("timeout", f"{self.config.name}: response deadline exceeded")
+            try:
+                response = self.responses.get(
+                    timeout=min(remaining, 0.1) if self.stop_event is not None else remaining,
+                )
+            except queue.Empty:
+                continue
+            check_cancelled(self.stop_event)
+            break
         if isinstance(response, EngineFailure):
             raise response
         if response.startswith(("ERROR", "UNKNOWN")):
@@ -282,14 +303,16 @@ def close_engines(engines: list[Engine]) -> None:
         raise ExceptionGroup("engine shutdown failed", failures)
 
 
-def preflight(config: Config, folder: Path) -> list[str]:
+def preflight(
+    config: Config, folder: Path, stop_event: threading.Event | None = None,
+) -> list[str]:
     log = EventLog(folder / "preflight.json", {"schema_version": 1, "kind": "preflight"})
     engines: list[Engine] = []
     identities: list[str] = []
     result: dict[str, object] = {"status": "failed"}
     try:
         for engine_config in config.engines:
-            engine = Engine(engine_config, log)
+            engine = Engine(engine_config, log, stop_event)
             engines.append(engine)
             identities.append(engine.initialize(config))
             # BOARD is sent only to the side to move: equal counts for black,
@@ -309,6 +332,9 @@ def preflight(config: Config, folder: Path) -> list[str]:
         result["status"] = "passed"
         result["identities"] = identities
         return identities
+    except RunCancelled as exc:
+        result.update(status="interrupted", reason="cancelled", error=str(exc))
+        raise
     except EngineFailure as exc:
         result.update(reason=exc.reason, error=str(exc))
         raise
@@ -325,6 +351,7 @@ def preflight(config: Config, folder: Path) -> list[str]:
 def play_game(
     config: Config, folder: Path, game_id: int, opening_id: str,
     opening: list[Move], candidate_black: bool, progress_path: Path | None = None,
+    stop_event: threading.Event | None = None,
 ) -> dict[str, object]:
     black_index = 1 if candidate_black else 0
     color_engines = {1: black_index, 2: 1 - black_index}
@@ -342,7 +369,7 @@ def play_game(
     active = 0
     try:
         for active, engine_config in enumerate(config.engines):
-            engine = Engine(engine_config, log)
+            engine = Engine(engine_config, log, stop_event)
             engines.append(engine)
             engine.initialize(config)
         first = [True, True]
@@ -373,6 +400,9 @@ def play_game(
                 "status": "completed", "termination": "full_board", "winner": None,
                 "candidate_score": 0.5, "technical": False,
             }
+    except RunCancelled as exc:
+        result.update(termination="cancelled", error=str(exc))
+        raise
     except EngineFailure as exc:
         result = {
             "status": "completed", "termination": exc.reason, "error": str(exc),
@@ -427,7 +457,11 @@ def report(
     }
 
 
-def run(config: Config, progress: Callable[[str], None] = print, progress_path: Path | None = None) -> Path:
+def run(
+    config: Config, progress: Callable[[str], None] = print,
+    progress_path: Path | None = None, *, stop_event: threading.Event | None = None,
+) -> Path:
+    """Run paired matches; a stop event raises RunCancelled after cleanup and log finalization."""
     openings = load_openings(config.openings)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     folder = config.output_dir / f"{stamp}-{uuid.uuid4().hex[:8]}"
@@ -455,15 +489,20 @@ def run(config: Config, progress: Callable[[str], None] = print, progress_path: 
     write_json(folder / "manifest.json", manifest)
     pairs: list[tuple[float, float]] = []
     games: list[dict[str, object]] = []
-    progress(f"Run directory: {folder}")
     try:
-        manifest["identities"] = preflight(config, folder)
+        progress(f"Run directory: {folder}")
+        check_cancelled(stop_event)
+        manifest["identities"] = preflight(config, folder, stop_event)
         for opening_id, moves in openings:
             scores = []
             # Alternate which engine plays black first between opening pairs.
             for candidate_black in ((len(pairs) % 2 == 0), (len(pairs) % 2 != 0)):
+                check_cancelled(stop_event)
                 game_id = len(games) + 1
-                result = play_game(config, folder, game_id, opening_id, moves, candidate_black, progress_path)
+                result = play_game(
+                    config, folder, game_id, opening_id, moves, candidate_black,
+                    progress_path, stop_event,
+                )
                 games.append({"game_id": game_id, "opening_id": opening_id, **result})
                 score = result["candidate_score"]
                 assert isinstance(score, float)
@@ -484,8 +523,12 @@ def run(config: Config, progress: Callable[[str], None] = print, progress_path: 
             manifest["stop_reason"] = "opening_suite_exhausted"
         manifest["status"] = "completed"
     except (Exception, KeyboardInterrupt) as exc:
-        manifest.update(status="interrupted" if isinstance(exc, KeyboardInterrupt) else "failed",
-                        error=f"{type(exc).__name__}: {exc}")
+        manifest.update(
+            status="interrupted" if isinstance(exc, (KeyboardInterrupt, RunCancelled)) else "failed",
+            error=f"{type(exc).__name__}: {exc}",
+        )
+        if isinstance(exc, RunCancelled):
+            manifest["stop_reason"] = "cancelled"
         raise
     finally:
         manifest["finished_utc"] = datetime.now(timezone.utc).isoformat()

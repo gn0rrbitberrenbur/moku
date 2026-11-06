@@ -303,6 +303,52 @@ void debugTests(const std::filesystem::path& directory, const std::filesystem::p
             "Metrics retain 64-bit counters, nulls and reordered keys.");
     require(cli::metricsStatus(parsed).find("18446744073709551615") != std::string::npos,
             "Metrics display must not round counters.");
+    require(!parsed.tt_capacity_entries && !parsed.tt_allocated_bytes &&
+                !parsed.tt_occupancy_permille && !parsed.tt_probes_total &&
+                !parsed.depth_completed && !parsed.workers_active &&
+                !parsed.alpha_beta_cutoffs_total && !parsed.root_candidates_count &&
+                cli::metricsStatus(parsed).find("TT probes: -") != std::string::npos,
+            "Older engines may omit the additional metrics.");
+    const std::string extra =
+        R"(,"tt_capacity_entries":8388608,"tt_allocated_bytes":18446744073709551615,)"
+        R"("tt_occupancy_permille":125,"tt_probes_total":4000,"depth_completed":8,)"
+        R"("workers_active":0,"alpha_beta_cutoffs_total":234,"root_candidates_count":17)";
+    auto extended = metrics;
+    extended.insert(extended.size() - 1, extra);
+    for (const auto& event : {"search_progress", "search_finished"})
+    {
+        auto payload = extended;
+        payload.replace(payload.find("search_progress"), 15, event);
+        const auto current = cli::parseMetrics(payload, 15);
+        require(current.tt_capacity_entries == 8388608 &&
+                    current.tt_allocated_bytes == UINT64_MAX &&
+                    current.tt_occupancy_permille == 125 && current.tt_probes_total == 4000 &&
+                    current.depth_completed == 8 && current.workers_active == 0 &&
+                    current.alpha_beta_cutoffs_total == 234 && current.root_candidates_count == 17,
+                "Progress and final events retain every additional metric.");
+        const auto status = cli::metricsStatus(current);
+        for (const auto& label :
+             {"Depth completed: 8", "Workers: 0", "TT probes: 4000", "TT capacity: 8388608",
+              "TT bytes: 18446744073709551615", "TT occupancy: 125 / 1000", "Cutoffs: 234",
+              "Root candidates: 17"})
+        {
+            require(status.find(label) != std::string::npos, "Additional metric is not displayed.");
+        }
+    }
+    for (const auto& key :
+         {"tt_capacity_entries", "tt_allocated_bytes", "tt_occupancy_permille", "tt_probes_total",
+          "depth_completed", "workers_active", "alpha_beta_cutoffs_total", "root_candidates_count"})
+    {
+        for (const auto& value : {"-1", "1.5", "18446744073709551616", "\"12\"", "null"})
+        {
+            auto invalid = metrics;
+            invalid.insert(invalid.size() - 1, ",\"" + std::string(key) + "\":" + value);
+            rejects([&] { cli::parseMetrics(invalid, 15); });
+        }
+    }
+    auto invalidOccupancy = metrics;
+    invalidOccupancy.insert(invalidOccupancy.size() - 1, ",\"tt_occupancy_permille\":1001");
+    rejects([&] { cli::parseMetrics(invalidOccupancy, 15); });
     for (const auto& text :
          std::vector<std::string>{"{}", "null", "{\"event\":", metrics + "x",
                                   "{\"event\":\"search_progress\",\"nodes_total\":-1}"})
@@ -368,9 +414,16 @@ void debugTests(const std::filesystem::path& directory, const std::filesystem::p
             require(await(std::move(first)).move.x == 0 && await(std::move(second)).move.x == 0,
                     "Debug negotiation must not contaminate move replies.");
             const auto last = session->metrics(0);
-            require(supported ? sawFirst && sawSecond && sawNulls && last && last->nodes == 3000 &&
-                                    last->best && last->score == "-42"
-                              : !last && !session->metrics(1),
+            require(supported
+                        ? sawFirst && sawSecond && sawNulls && last && last->nodes == 3000 &&
+                              last->best && last->score == "-42" &&
+                              last->tt_capacity_entries == 8388608 &&
+                              last->tt_allocated_bytes == 268435456 &&
+                              last->tt_occupancy_permille == 125 && last->tt_probes_total == 4000 &&
+                              last->depth_completed == 3 && last->workers_active == 0 &&
+                              last->alpha_beta_cutoffs_total == 234 &&
+                              last->root_candidates_count == 17
+                        : !last && !session->metrics(1),
                     "Live metrics updates or unsupported/malformed fallback failed.");
             if (supported)
             {
@@ -423,7 +476,7 @@ void debugTests(const std::filesystem::path& directory, const std::filesystem::p
         for (std::size_t index = 0; index < 2; ++index)
         {
             require(commands[index].find("START 5\r\n") != std::string::npos &&
-                        commands[index].find("DEBUG_OUTPUT\r\n") != std::string::npos &&
+                        commands[index].find("DEBUG_OUTPUT 100\r\n") != std::string::npos &&
                         commands[index].find("BEGIN\r\n") != std::string::npos &&
                         commands[index].find("END\r\n") != std::string::npos &&
                         replies[index].find("0,0") != std::string::npos &&

@@ -52,7 +52,8 @@ CPU scheduling, search parallelism and optional INFO support remain the engine's
 ## Debug metrics and transcripts
 Only debug games set `EngineConfig.debug` to a shared `DebugSession`, with `debugEngine` equal
 to the player's color index (0 = Black, 1 = White, including human games).
-After START and INFO, each worker sends `DEBUG_OUTPUT` with no arguments, never a startup flag.
+After START and INFO, each worker sends `DEBUG_OUTPUT <interval_ms>`, never a startup flag.
+The configured interval defaults to 100 ms.
 The optional acknowledgement has a maximum 200 ms startup wait, bounded by the existing startup
 deadline. `DEBUG_OUTPUT True` enables parsing. If an engine reports False because debug was
 already enabled on launch, the worker toggles it once more to enable it.
@@ -74,10 +75,26 @@ beginning `[METRICS] ` are parsed as JSON. Supported events have this shape:
   "tt_hits_total": 100,
   "nps": 6666,
   "depth_current": 2,
+  "tt_capacity_entries": 8388608,
+  "tt_allocated_bytes": 268435456,
+  "tt_occupancy_permille": 125,
+  "tt_probes_total": 900,
+  "depth_completed": 1,
+  "workers_active": 2,
+  "alpha_beta_cutoffs_total": 234,
+  "root_candidates_count": 17,
   "best_move": {"x": 0, "y": 0},
   "score": -42
 }
 ```
+
+Both `search_progress` and `search_finished` update the latest snapshot. The final snapshot
+remains available after the search. The eight additional fields shown between `depth_current`
+and `best_move` are optional for compatibility with older engines; absent values display `-`.
+TT capacity is a slot count, allocation is in bytes, and occupancy is an integer from 0 to 1000
+displayed as a fraction of 1000. Completed depth counts fully searched root iterations; active
+workers are zero in final events. Probes, cutoffs and root candidate counts retain the engine's
+reported values. See the [engine metric contracts](../../engine/docs/docsSearch.md#6-debug-metrics).
 
 Field order and extra fields are allowed. Counters are nonnegative 64-bit integers. `best_move`
 may be null or a zero-based coordinate within the configured board; `score` may be a finite JSON
@@ -98,7 +115,7 @@ The automatically named report in `debug-reports` is a single JSON document:
       "engine": 0,
       "name": "Moku",
       "stream": "stdin",
-      "text": "DEBUG_OUTPUT\r\n"
+      "text": "DEBUG_OUTPUT 100\r\n"
     }
   ]
 }

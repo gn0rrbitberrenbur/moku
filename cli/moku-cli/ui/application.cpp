@@ -400,7 +400,7 @@ std::string Application::boardScreen(const Board& board, Move cursor, std::optio
     screen << "\n  Moves: " << board.moves() << " | "
            << (turn == Stone::Black ? "Black (X)" : "White (O)") << '\n';
     std::istringstream lines(status);
-    for (int i = 0; i < (debug ? 4 : 1); ++i)
+    for (int i = 0; i < (debug ? 11 : 1); ++i)
     {
         std::string line;
         std::getline(lines, line);
@@ -420,7 +420,7 @@ std::string Application::boardScreen(const Board& board, Move cursor, std::optio
  */
 void Application::play(const GameSetup& config, std::shared_ptr<DebugSession> debug)
 {
-    const int minimumRows = config.size + (debug ? 16 : 13);
+    const int minimumRows = config.size + (debug ? 23 : 13);
     while (!terminal_.fits(65, minimumRows))
     {
         terminal_.draw(heading("Resize terminal") + "  Please enlarge the terminal to 65 x " +

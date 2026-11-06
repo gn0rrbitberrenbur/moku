@@ -79,6 +79,10 @@ as usual.
 The CLI probes each engine with the optional `DEBUG_OUTPUT` toggle after startup.
 
 An engine acknowledging `DEBUG_OUTPUT True` can report `[METRICS]` JSON on stderr.
+The live display accepts progress and final events and includes TT capacity, allocation,
+occupancy and probes, completed depth, active workers, alpha-beta cutoffs and root candidates.
+Additional fields omitted by older engines display `-`. Debug games require a terminal with
+at least 65 columns and `board size + 23` rows.
 
 Every debug game creates a separate `debug-reports/debug-<timestamp>.json` in the current
 working directory. It records commands and complete stdout/stderr from both engine instances, including startup and shutdown, with timestamps and engine/color identifiers.

@@ -61,7 +61,8 @@ SearchMetrics parseMetrics(const std::string& json, int size)
 {
     const auto object = parseJson(json);
     const auto& event = member(object, "event");
-    if (event.kind != JsonValue::Kind::String || event.text != "search_progress")
+    if (event.kind != JsonValue::Kind::String ||
+        (event.text != "search_progress" && event.text != "search_finished"))
     {
         throw std::invalid_argument("Unsupported metrics event.");
     }
@@ -71,6 +72,23 @@ SearchMetrics parseMetrics(const std::string& json, int size)
     result.hits = integer(object, "tt_hits_total");
     result.nps = integer(object, "nps");
     result.depth = integer(object, "depth_current");
+    const auto optionalInteger = [&](const char* key) -> std::optional<std::uint64_t>
+    {
+        return object.members.count(key) ? std::optional<std::uint64_t>(integer(object, key))
+                                         : std::nullopt;
+    };
+    result.tt_capacity_entries = optionalInteger("tt_capacity_entries");
+    result.tt_allocated_bytes = optionalInteger("tt_allocated_bytes");
+    result.tt_occupancy_permille = optionalInteger("tt_occupancy_permille");
+    result.tt_probes_total = optionalInteger("tt_probes_total");
+    result.depth_completed = optionalInteger("depth_completed");
+    result.workers_active = optionalInteger("workers_active");
+    result.alpha_beta_cutoffs_total = optionalInteger("alpha_beta_cutoffs_total");
+    result.root_candidates_count = optionalInteger("root_candidates_count");
+    if (result.tt_occupancy_permille && *result.tt_occupancy_permille > 1000)
+    {
+        throw std::invalid_argument("Metrics TT occupancy exceeds 1000 permille.");
+    }
     const auto& best = member(object, "best_move");
     if (best.kind != JsonValue::Kind::Null)
     {
@@ -106,13 +124,23 @@ SearchMetrics parseMetrics(const std::string& json, int size)
  */
 std::string metricsStatus(const SearchMetrics& metrics)
 {
+    const auto display = [](const std::optional<std::uint64_t>& value)
+    { return value ? std::to_string(*value) : "-"; };
     return "Time: " + std::to_string(metrics.elapsed) +
            " ms | Nodes: " + std::to_string(metrics.nodes) +
            "\n  TT hits: " + std::to_string(metrics.hits) +
            " | NPS: " + std::to_string(metrics.nps) +
            "\n  Depth: " + std::to_string(metrics.depth) +
            " | Best: " + (metrics.best ? coordinate(*metrics.best) : "-") +
-           "\n  Score: " + (metrics.score == "null" ? "-" : metrics.score);
+           "\n  Score: " + (metrics.score == "null" ? "-" : metrics.score) +
+           "\n  Depth completed: " + display(metrics.depth_completed) +
+           " | Workers: " + display(metrics.workers_active) +
+           "\n  TT probes: " + display(metrics.tt_probes_total) +
+           "\n  TT capacity: " + display(metrics.tt_capacity_entries) +
+           "\n  TT bytes: " + display(metrics.tt_allocated_bytes) +
+           "\n  TT occupancy: " + display(metrics.tt_occupancy_permille) + " / 1000" +
+           "\n  Cutoffs: " + display(metrics.alpha_beta_cutoffs_total) +
+           "\n  Root candidates: " + display(metrics.root_candidates_count);
 }
 
 /**

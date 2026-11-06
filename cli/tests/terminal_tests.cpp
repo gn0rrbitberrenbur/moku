@@ -68,13 +68,6 @@ public:
             cleanup();
             throw std::runtime_error("Cannot access UI test console.");
         }
-        const SMALL_RECT window{0, 0, 99, 44};
-        if (!SetConsoleScreenBufferSize(output_, COORD{120, 60}) ||
-            !SetConsoleWindowInfo(output_, TRUE, &window))
-        {
-            cleanup();
-            throw std::runtime_error("Cannot resize UI test console.");
-        }
     }
 
     ~Session()
@@ -133,6 +126,12 @@ public:
             output_ =
                 CreateFileW(L"CONOUT$", GENERIC_READ | GENERIC_WRITE,
                             FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+            const SMALL_RECT window{0, 0, 99, 44};
+            if (!SetConsoleScreenBufferSize(output_, COORD{120, 60}) ||
+                !SetConsoleWindowInfo(output_, TRUE, &window))
+            {
+                throw std::runtime_error("Cannot resize UI test console.");
+            }
             CONSOLE_SCREEN_BUFFER_INFO info{};
             if (!GetConsoleScreenBufferInfo(output_, &info))
             {
@@ -410,7 +409,7 @@ int main(int argc, char** argv)
             session.wait(L"Select engine");
             session.key(VK_RETURN);
             session.wait(L"Opponent: Metrics");
-            session.down(1);
+            session.down(2);
             session.key(VK_RETURN);
             session.wait(L"Nodes: 1000");
             const auto updated = session.wait(L"Nodes: 2000");
@@ -421,6 +420,13 @@ int main(int argc, char** argv)
                 throw std::runtime_error("Debug metrics must update in place, not accumulate.");
             }
             session.wait(L"Score: -42");
+            session.wait(L"TT probes: 4000");
+            session.wait(L"TT capacity: 8388608");
+            session.wait(L"TT bytes: 268435456");
+            session.wait(L"TT occupancy: 125 / 1000");
+            session.wait(L"Cutoffs: 234");
+            session.wait(L"Root candidates: 17");
+            session.wait(L"Depth completed: 3 | Workers: 0");
             session.wait(L"Your turn");
             session.key(VK_ESCAPE);
             session.wait(L"Debug report saved");
@@ -441,7 +447,7 @@ int main(int argc, char** argv)
             session.down(1);
             session.key(VK_RETURN);
             session.wait(L"White engine: Fallback");
-            session.down(1);
+            session.down(2);
             session.key(VK_RETURN);
             session.wait(L"Thinking...");
             session.key(VK_ESCAPE);

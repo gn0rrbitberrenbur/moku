@@ -46,14 +46,17 @@ its deadline and may finish during resizing.
 
 ### Debug
 Debug offers Play vs engine, Engine vs engine and Back. Both game types reuse the normal
-setup, rules, input, pause, cancellation and move validation. A DEBUG board reserves four
+setup, rules, input, pause, cancellation and move validation. A DEBUG board reserves eleven
 status rows for the current engine's elapsed milliseconds, nodes, TT hits, NPS, depth, best
-move and score. Only the latest snapshot is displayed, refreshed at the normal UI polling
-interval; no progress history is appended. The required height is `board size + 16` rows.
+move, score, completed depth, active workers, TT probes, TT capacity, TT allocation in bytes,
+TT occupancy per 1000, alpha-beta cutoffs and root candidates. Only the latest snapshot is
+displayed, refreshed at the normal UI polling interval; no progress history is appended.
+The required height is `board size + 23` rows.
 
 Until valid metrics arrive (or if the engine does not support `DEBUG_OUTPUT`), the status
 remains Thinking. Each new search clears the preceding search's metrics. Null best moves
-and scores display `-`; best moves use board coordinates such as A1.
+and scores display `-`; best moves use board coordinates such as A1. Additional metrics omitted
+by older engines also display `-`. Final `search_finished` events update the snapshot.
 On returning from a debug game, a message shows its JSON transcript path before returning
 to the Debug menu. See [docsEngine.md](docsEngine.md#debug-metrics-and-transcripts).
 

@@ -163,13 +163,19 @@ int main(int argc, char** argv)
                     for (int step = 1; step <= 3; ++step)
                     {
                         const std::string json =
-                            "[METRICS] {\"event\":\"search_progress\",\"elapsed_ms\":" +
-                            std::to_string(step * 150) +
+                            std::string("[METRICS] {\"event\":\"") +
+                            (step == 3 ? "search_finished" : "search_progress") +
+                            "\",\"elapsed_ms\":" + std::to_string(step * 150) +
                             ",\"nodes_total\":" + std::to_string(step * 1000) +
                             ",\"tt_hits_total\":" + std::to_string(step * 100) +
                             ",\"nps\":6666,\"depth_current\":" + std::to_string(step) +
                             ",\"best_move\":" + (step == 1 ? "null" : "{\"x\":0,\"y\":0}") +
-                            ",\"score\":" + (step == 1 ? "null" : "-42") + "}\n";
+                            ",\"score\":" + (step == 1 ? "null" : "-42") +
+                            ",\"tt_capacity_entries\":8388608,\"tt_allocated_bytes\":268435456" +
+                            ",\"tt_occupancy_permille\":125,\"tt_probes_total\":4000" +
+                            ",\"depth_completed\":" + std::to_string(step) +
+                            ",\"workers_active\":" + (step == 3 ? "0" : "2") +
+                            ",\"alpha_beta_cutoffs_total\":234,\"root_candidates_count\":17}\n";
                         std::cerr << json.substr(0, 27) << std::flush;
                         std::this_thread::sleep_for(std::chrono::milliseconds(5));
                         std::cerr << json.substr(27) << std::flush;
