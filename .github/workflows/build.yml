@@ -107,14 +107,15 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           mkdir -p release
-          cp build/wasm/engine/moku/extended_moku_wasm.js "release/extended_moku_wasm_${version}.js"
-          cp build/wasm/engine/moku/extended_moku_wasm.wasm "release/extended_moku_wasm_${version}.wasm"
+          cp build/wasm/engine/moku/extended_moku_wasm.js "release/extended_moku_wasm.js"
+          cp build/wasm/engine/moku/extended_moku_wasm.wasm "release/extended_moku_wasm.wasm"
+          zip -j "release/extended_moku_wasm_${version}.zip" release/extended_moku_wasm.js release/extended_moku_wasm.wasm
 
       - name: Upload WebAssembly artifacts
         uses: actions/upload-artifact@v4
         with:
           name: moku-wasm
-          path: release/*
+          path: release/*.zip
 
   release:
     needs: [build, wasm]
@@ -135,6 +136,6 @@ jobs:
           files: |
             artifacts/moku-linux/*
             artifacts/moku-windows/*
-            artifacts/moku-wasm/*
+            artifacts/moku-wasm/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
