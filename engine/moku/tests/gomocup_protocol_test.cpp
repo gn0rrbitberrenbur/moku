@@ -48,6 +48,11 @@ public:
     {
         return running;
     }
+
+    size_t tt_size() const
+    {
+        return agent.get_tt_size();
+    }
 };
 
 class GomocupProtocolTest : public ::testing::Test
@@ -365,6 +370,19 @@ TEST_F(GomocupProtocolTest, INFO_InfoUpdatesSupportedValues)
     EXPECT_EQ(g_config.game_type, 1);
     EXPECT_EQ(g_config.rule, 2);
     EXPECT_EQ(g_config.folder, "/tmp/moku");
+}
+
+TEST_F(GomocupProtocolTest, INFO_MaxMemoryRemainsMetadataOnly)
+{
+    {
+        ProtocolEngine engine;
+        EXPECT_TRUE(engine.execute("INFO max_memory 1024").empty());
+        EXPECT_EQ(g_config.max_memory, 1024);
+        EXPECT_EQ(engine.tt_size(), size_t(1) << 23);
+    }
+
+    ProtocolEngine engine;
+    EXPECT_EQ(engine.tt_size(), size_t(1) << 23);
 }
 
 TEST_F(GomocupProtocolTest, INFO_UnknownInfoIsIgnored)

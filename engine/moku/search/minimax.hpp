@@ -20,7 +20,10 @@ struct RootCandidate
 class MinimaxAgent
 {
 public:
-    MinimaxAgent(int depth) : max_depth(depth) {}
+    MinimaxAgent(int depth, uint64_t max_memory_bytes = 0)
+        : max_depth(depth), tt(max_memory_bytes)
+    {
+    }
 
     // existing function
     int get_best_move(Board& board, bool is_black);
@@ -67,6 +70,19 @@ public:
         tt.clear();
     }
 
+    void set_tt_max_memory(uint64_t max_memory_bytes)
+    {
+        tt.set_max_memory(max_memory_bytes);
+    }
+    size_t get_tt_size() const
+    {
+        return tt.size();
+    }
+    size_t get_tt_allocated_bytes() const
+    {
+        return tt.allocated_bytes();
+    }
+
 private:
     int max_depth;
     std::atomic<long long> nodes_searched{0};
@@ -80,6 +96,7 @@ private:
     // time control
     std::chrono::steady_clock::time_point search_start;
     int time_limit = 0;
+    long long node_limit = 0;
     std::atomic<bool> search_aborted{false};
 
     Evaluator evaluator;
@@ -92,6 +109,7 @@ private:
     std::vector<RootCandidate> last_root_candidates;
 
     bool is_time_up();
+    bool count_node();
 
     // mutex for thread-safe access to search metrics
     std::atomic<int> progress_best_move{-1};

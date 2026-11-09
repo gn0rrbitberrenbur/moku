@@ -28,19 +28,22 @@ class TranspositionTable
 {
     static constexpr size_t TT_BITS = 23;
     static constexpr size_t TT_SIZE = size_t(1) << TT_BITS;
-    static constexpr uint64_t TT_MASK = TT_SIZE - 1;
-    std::vector<TTEntry> table = std::vector<TTEntry>(TT_SIZE);
+    std::vector<TTEntry> table;
+    uint64_t tt_mask = TT_SIZE - 1;
     static constexpr size_t LOCK_COUNT = 256;
     mutable std::array<std::mutex, LOCK_COUNT> slot_mutexes;
     std::atomic<size_t> occupied_entries{0};
 
 public:
-    TranspositionTable();
+    explicit TranspositionTable(uint64_t max_memory_bytes = 0);
     uint64_t compute_hash(const Board& board, bool is_black_turn) const;
     uint64_t update_hash(uint64_t hash, int move, bool is_black_turn) const;
     bool probe(uint64_t hash, TTEntry& entry, int ply) const;
     void store(uint64_t hash, float score, int depth, int flag, int best_move, int ply);
     void clear();
+    // Limits entry storage, rounding down to a power of two. Requires no concurrent search.
+    // Zero restores the default capacity; a positive budget must fit at least one entry.
+    void set_max_memory(uint64_t max_memory_bytes);
     size_t size() const
     {
         return table.size();

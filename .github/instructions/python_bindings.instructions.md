@@ -89,6 +89,10 @@ the task explicitly changes the public API. The package exports:
 
 ### Benchmarks
 
+- Keep Python benchmark wrappers on the default TT budget and preserve their argument
+  lists. The C++ benchmark API accepts an additional byte budget for the extended
+  protocol's `INFO max_memory`; Python does not expose that setting.
+
 - `run_position(name,setup,side_to_move,depth,time_ms,board_size=15)` accepts a
   sequence of `(algebraic_coordinate,is_black)` pairs and returns `BenchResult`.
 - Read-only result fields: `name`, `reached_depth`, `nodes`, `tt_hits`, `tt_size`,

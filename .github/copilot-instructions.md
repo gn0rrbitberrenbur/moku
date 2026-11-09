@@ -40,6 +40,9 @@ Read the relevant scoped instructions before editing:
 Search debug metrics are `[METRICS]` JSON on stderr, with periodic
 `search_progress` and unconditional final `search_finished` events when enabled.
 Keep engine fields and their semantics consistent with `engine/docs/docsSearch.md`.
+Only the extended protocol applies `INFO max_memory <bytes>` to TT entry storage;
+zero restores the default capacity. Standard Gomocup handling remains metadata-only.
+Preserve this boundary and pass the extended budget to benchmark workload agents.
 The standalone `benchmarking` runner retains all parsed metric fields together
 with decoded text and exact bytes. Verify logging with
 `python -m unittest benchmarking.tests.test_benchmarking.ProtocolTests -v`.
@@ -82,7 +85,7 @@ Engine-only verification, with a separate build directory to isolate cached opti
 
 ```sh
 cmake -S . -B build-engine -DCMAKE_BUILD_TYPE=Release -DMOKU_BUILD_ENGINE=ON -DMOKU_BUILD_TESTS=ON -DMOKU_BUILD_PYTHON=OFF -DMOKU_BUILD_NNUE=OFF
-cmake --build build-engine --config Release --target gomocup_moku extended_moku tests gomocup_protocol_tests
+cmake --build build-engine --config Release --target gomocup_moku extended_moku moku_tests gomocup_protocol_tests extended_protocol_tests
 ctest --test-dir build-engine -C Release --output-on-failure --no-tests=error
 ```
 

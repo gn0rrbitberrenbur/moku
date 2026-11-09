@@ -10,9 +10,10 @@ and through `BENCHMARK` in the extended executable.
 BenchResult run_position(
     const std::string& name,
     const std::vector<std::pair<std::string, bool>>& setup,
-    bool side_to_move, int depth, int time_ms, int board_size = 15);
+    bool side_to_move, int depth, int time_ms, int board_size = 15,
+    uint64_t max_memory_bytes = 0);
 
-int run_benchmark(int depth, int time_ms);
+int run_benchmark(int depth, int time_ms, uint64_t max_memory_bytes = 0);
 ```
 
 Setup entries pair an algebraic square with a color: 
@@ -46,6 +47,12 @@ The previous board size is restored on normal return.
 Each workload gets a fresh agent and table; this does not measure reuse of a
 warm table across positions. `run_benchmark()` also disables debug output
 globally without restoring the previous flag.
+
+The optional byte budget bounds each workload agent's TT entry storage. Zero
+uses the default capacity. The extended `BENCHMARK` handler passes the current
+`INFO max_memory` value to every workload. The protocol agent remains allocated
+alongside the active workload agent, so the budget is per table, not per process.
+See [INFO max_memory](docsExtendedProtocol.md#info-max_memory).
 
 ## 3. Result Fields
 | `BenchResult` field | Current meaning |

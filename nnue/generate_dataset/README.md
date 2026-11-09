@@ -1,29 +1,14 @@
 # nnue — Gomoku NNUE Dataset Generator
-
-The source code in this repository generates self-play training data for a Gomoku NNUE. It uses the
-[moku](https://github.com/gn0rrbitberrenbur/moku) engine (fetched at build
-time) to play self-play games and records, for every position, feature planes plus
-value and policy targets. Datasets are written as versioned binary shards for training.
+The source code in this folder generates self-play training data for a Gomoku NNUE. It uses the
+[moku](https://github.com/gn0rrbitberrenbur/moku) engine to play self-play games and records, for every position, feature planes plus value and policy targets. Datasets are written as versioned binary shards for training.
 
 ## Requirements
-
 - A C++17 compiler (MSVC, GCC, or Clang).
 - CMake >= 3.14.
 - Network access on the first configure (moku and googletest are fetched via
   `FetchContent`).
 
-moku is pulled from `https://github.com/gn0rrbitberrenbur/moku.git`, tag `v0.0.5`,
-and built as the static library `moku_core`.
-
-## Build
-
-```sh
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release
-```
-
 ## Run
-
 ```sh
 nnue_gen [options]
 ```
@@ -51,7 +36,6 @@ This writes training shards `nnue_dataset-00000.bin`, … and validation shards
 stderr.
 
 ## Output format
-
 Each shard begins with a `DatasetHeader` (magic `'GNN1'` = `0x314E4E47`, version `2`),
 followed by packed samples. Per sample:
 

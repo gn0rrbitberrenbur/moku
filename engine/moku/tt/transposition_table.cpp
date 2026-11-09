@@ -1,6 +1,7 @@
 #include "tt/transposition_table.hpp"
 
 #include <algorithm>
+#include <stdexcept>
 
 /**
  * This file implements the TranspositionTable class defined in ../tt/transposition_table.hpp, which
@@ -10,9 +11,42 @@
  */
 
 // initialize transposition table
-TranspositionTable::TranspositionTable()
+TranspositionTable::TranspositionTable(uint64_t max_memory_bytes)
 {
+    set_max_memory(max_memory_bytes);
     init_zobrist();
+}
+
+void TranspositionTable::set_max_memory(uint64_t max_memory_bytes)
+{
+    size_t entries = TT_SIZE;
+    if (max_memory_bytes > 0)
+    {
+        const uint64_t budget_entries = max_memory_bytes / sizeof(TTEntry);
+        if (budget_entries == 0)
+        {
+            throw std::invalid_argument("TT memory limit must fit at least one entry");
+        }
+        entries = 1;
+        while (entries < TT_SIZE && entries * 2 <= budget_entries)
+        {
+            entries *= 2;
+        }
+    }
+
+    if (entries == table.size())
+    {
+        return;
+    }
+
+    std::vector<TTEntry> replacement(entries);
+    if (max_memory_bytes > 0 && replacement.capacity() * sizeof(TTEntry) > max_memory_bytes)
+    {
+        throw std::length_error("TT allocation exceeds the memory limit");
+    }
+    table.swap(replacement);
+    tt_mask = entries - 1;
+    occupied_entries.store(0, std::memory_order_relaxed);
 }
 
 /**
@@ -94,8 +128,9 @@ static constexpr float MATE = 90000.0f;
  */
 bool TranspositionTable::probe(uint64_t hash, TTEntry& entry, int ply) const
 {
-    std::lock_guard<std::mutex> lock(slot_mutexes[hash & (LOCK_COUNT - 1)]);
-    const TTEntry& slot = table[hash & TT_MASK];
+    const size_t index = hash & tt_mask;
+    std::lock_guard<std::mutex> lock(slot_mutexes[index & (LOCK_COUNT - 1)]);
+    const TTEntry& slot = table[index];
     if (slot.depth < 0 || slot.key != hash)
         return false;
     entry = slot;
@@ -124,8 +159,9 @@ void TranspositionTable::store(uint64_t hash, float score, int depth, int flag, 
         score += ply;
     else if (score <= -MATE)
         score -= ply;
-    std::lock_guard<std::mutex> lock(slot_mutexes[hash & (LOCK_COUNT - 1)]);
-    TTEntry& slot = table[hash & TT_MASK];
+    const size_t index = hash & tt_mask;
+    std::lock_guard<std::mutex> lock(slot_mutexes[index & (LOCK_COUNT - 1)]);
+    TTEntry& slot = table[index];
     if (slot.key != hash || slot.depth <= depth)
     {
         if (slot.depth < 0)

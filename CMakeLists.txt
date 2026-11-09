@@ -31,6 +31,7 @@ option(MOKU_BUILD_ENGINE "Build the gomocup_moku and extended_moku executables" 
 option(MOKU_BUILD_TESTS  "Build the GoogleTest suites"                          ON)
 option(MOKU_BUILD_PYTHON "Build the pymoku pybind11 module"                     ON)
 option(MOKU_BUILD_NNUE   "Build the nnue_gen dataset generator"                 ON)
+option(MOKU_BUILD_CLI    "Build the moku_cli application" ON)
 option(MOKU_BUILD_WASM   "Build the WebAssembly extended engine"                OFF)
 
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/CompilerWarnings.cmake")
@@ -42,6 +43,10 @@ if(MOKU_BUILD_TESTS)
 endif()
 
 add_subdirectory(engine/moku)
+
+if(MOKU_BUILD_CLI)
+    add_subdirectory(cli)
+endif()
 
 if(MOKU_BUILD_PYTHON)
     add_subdirectory(python_bindings)

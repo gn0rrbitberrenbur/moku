@@ -148,7 +148,7 @@ be reported only when the next command requiring a response is received.
 | `timeout_turn` | Time limit per move in milliseconds; `0` means play as fast as possible | Used for the search time budget; note the deviation for `0` |
 | `timeout_match` | Total game time limit in milliseconds; `0` means unlimited | Stored but not used for time management |
 | `time_left` | Remaining game time in milliseconds | Stored but not used for time management |
-| `max_memory` | Memory limit in bytes; `0` means unlimited | Stored but not enforced as a memory limit |
+| `max_memory` | Memory limit in bytes; `0` means unlimited | Metadata-only in `gomocup_moku`; the extended engine bounds TT entry storage, with `0` restoring default capacity |
 | `game_type` | `0`: human, `1`: engine, `2`: tournament, `3`: network tournament | Stored |
 | `rule` | Bitmask for rule variants | Stored; does not change the game rules |
 | `evaluate` | Mouse position `X,Y` for optional debug evaluation | Ignored |

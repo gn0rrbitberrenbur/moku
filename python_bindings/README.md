@@ -200,6 +200,9 @@ table.clear()
 ```
 
 ## Benchmarks
+Python agents, tables, and benchmark wrappers use the default TT capacity of
+`2^23` entries. The runtime `INFO max_memory` setting belongs to the extended
+protocol engine and is not exposed by the Python API.
 
 Run a predefined benchmark:
 

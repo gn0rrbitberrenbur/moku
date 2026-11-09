@@ -24,11 +24,15 @@ set_target_properties(moku_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 moku_enable_warnings(moku_core)
 
-# Gomocup protocol engine (needed by tests)
+# Protocol engines (needed by executables and tests)
 if(MOKU_BUILD_ENGINE OR MOKU_BUILD_TESTS)
     add_library(moku_gomocup_engine STATIC engine/gomocup_protocol/gomocup_engine.cpp)
     target_link_libraries(moku_gomocup_engine PUBLIC moku::core)
     moku_enable_warnings(moku_gomocup_engine)
+
+    add_library(moku_extended_engine STATIC engine/extended_protocol/extended_protocol.cpp)
+    target_link_libraries(moku_extended_engine PUBLIC moku::core)
+    moku_enable_warnings(moku_extended_engine)
 endif()
 
 # Executables
@@ -36,10 +40,6 @@ if(MOKU_BUILD_ENGINE)
     add_executable(gomocup_moku main_gomocup.cpp)
     target_link_libraries(gomocup_moku PRIVATE moku_gomocup_engine)
     moku_enable_warnings(gomocup_moku)
-
-    add_library(moku_extended_engine STATIC engine/extended_protocol/extended_protocol.cpp)
-    target_link_libraries(moku_extended_engine PUBLIC moku::core)
-    moku_enable_warnings(moku_extended_engine)
 
     add_executable(extended_moku main_extended_protocol.cpp)
     target_link_libraries(extended_moku PRIVATE moku_extended_engine)
@@ -84,4 +84,9 @@ if(MOKU_BUILD_TESTS)
     target_link_libraries(gomocup_protocol_tests PRIVATE moku_gomocup_engine GTest::gtest_main)
     moku_enable_warnings(gomocup_protocol_tests)
     gtest_discover_tests(gomocup_protocol_tests DISCOVERY_TIMEOUT 30)
+
+    add_executable(extended_protocol_tests tests/extended_protocol_test.cpp)
+    target_link_libraries(extended_protocol_tests PRIVATE moku_extended_engine GTest::gtest_main)
+    moku_enable_warnings(extended_protocol_tests)
+    gtest_discover_tests(extended_protocol_tests DISCOVERY_TIMEOUT 30)
 endif()

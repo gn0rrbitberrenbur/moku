@@ -23,14 +23,16 @@ the ownership list below are relative to the repository root.
   each define an `Engine` for a separate executable. Keep translation-unit sets separate.
 - `engine/moku/benchmark/benchmark.*` owns workloads and printed benchmark results.
 - `engine/moku/tests/tests.cpp` covers core modules and standard engine behavior;
-  `engine/moku/tests/gomocup_protocol_test.cpp` covers stream-based Gomocup dispatch.
+  `engine/moku/tests/gomocup_protocol_test.cpp` and
+  `engine/moku/tests/extended_protocol_test.cpp` cover stream-based protocol dispatch.
 - `engine/docs/docsOverview.md` links the module references. Read the corresponding
   game, tools, evaluation, search, TT, protocol, configuration, or benchmark reference.
 
 ## Configuration And Board Contracts
 
 - Defaults: size 15, maximum depth 12, turn limit 20000 ms, debug output false,
-  metrics interval 10 ms, and hardware thread count with a fallback of one.
+  metrics interval 10 ms, unlimited nodes (`max_nodes=0`), and hardware thread
+  count with a fallback of one.
   Runtime version comes from `MOKU_VERSION`, falling back to `"unknown"`.
 - Supported dimensions are 5 through 19. `MAX_SIZE=19`, `MAX_SQUARES=361`;
   `Board` stores black and white stones in separate fixed-capacity bitsets.
@@ -64,7 +66,16 @@ the ownership list below are relative to the repository root.
   helper threads. TT probe/store operations use striped mutexes; metrics use atomic
   counters/gauges. Keep global configuration and positional-cache dimensions stable.
   Use `g_config.cores=1` for serial checks.
-- Each agent owns a direct-mapped table with `2^23` slots. `size()` reports capacity.
+- `g_config.max_nodes=0` disables the node limit. A positive limit counts recursive
+  minimax nodes (not root candidates) and is shared across SMP workers. Node claims
+  must use the shared atomic counter so concurrent searches never exceed the limit.
+  An interrupted search returns its best available legal move.
+- Each agent owns a direct-mapped table with a default and maximum of `2^23` slots.
+  An explicit TT byte budget rounds down to the largest fitting power-of-two capacity.
+  Zero restores the default; positive budgets must fit at least one `TTEntry`.
+  `size()` reports capacity. Resize only without concurrent search; changing capacity
+  clears entries and occupancy, preserves Zobrist keys, and releases old storage.
+  Lock striping uses slot indices so even tables smaller than 256 slots are safe.
   Zobrist generation uses seed 12345 and construction-time geometry. Incremental hash
   updates toggle a stone and side-to-move. Preserve mate-score ply normalization and
   exact/lower/upper bound handling when editing probe/store.
@@ -97,8 +108,16 @@ protocol responses; emit diagnostics and metrics to stderr.
   using counts and replies through single-thread timed search. Preserve both-color
   position-loading and reply-state tests when editing this logic.
 - Recognized case-sensitive `INFO` keys: `timeout_turn`, `timeout_match`, `time_left`,
-  `max_memory`, `game_type`, `rule`, `folder`, `depth`. Depth accepts 1 through 20.
-  Several fields are stored metadata; trace their consumers before assigning behavior.
+  `max_memory`, `game_type`, `rule`, `folder`, `depth`, and, in the extended
+  protocol, `max_nodes`. Depth accepts 1 through 20; `max_nodes` accepts nonnegative
+  values, with zero disabling the limit. Several fields are stored metadata; trace
+  their consumers before assigning behavior.
+- Only the extended handler enforces `INFO max_memory <bytes>` as a TT entry-vector
+  budget and passes it to subsequent benchmark agents. Parse exactly one nonnegative
+  `long long`; invalid input or allocation failure retains the table and setting and
+  writes an error to stderr, with no stdout response. `START`/`RESTART` retain capacity.
+  Standard Gomocup handling remains metadata-only. The budget is per table and excludes
+  other engine storage, allocator overhead, and transient resize peak memory.
 - Protocol search budget is `max(100, timeout_turn - 500)` for a positive turn timeout,
   otherwise 5000 ms. `INFO` writes diagnostics, when applicable, to stderr.
 - The extended dispatcher adds `DISPLAY`/`D`, `HELP`, `BENCHMARK depth time_limit_ms`,
@@ -118,7 +137,7 @@ CMake/CTest >=3.20 for `--test-dir` support. Run them from the repository root:
 
 ```sh
 cmake -S . -B build-engine -DCMAKE_BUILD_TYPE=Release -DMOKU_BUILD_ENGINE=ON -DMOKU_BUILD_TESTS=ON -DMOKU_BUILD_PYTHON=OFF -DMOKU_BUILD_NNUE=OFF
-cmake --build build-engine --config Release --target gomocup_moku extended_moku moku_tests gomocup_protocol_tests
+cmake --build build-engine --config Release --target gomocup_moku extended_moku moku_tests gomocup_protocol_tests extended_protocol_tests
 ctest --test-dir build-engine -C Release --output-on-failure --no-tests=error
 ```
 
@@ -129,8 +148,8 @@ libraries. Register core additions in its source list. Python and NNUE consume
 
 Executables are under `build-engine/engine/moku/`, with `Release/` for
 multi-configuration generators. GoogleTest discovers suite/case names. Use `ctest -N`
-to choose a narrow filter; use a stream-level extended-protocol smoke check for changes
-to extended dispatch. Concurrency changes require checks beyond serial protocol tests.
+to choose a narrow filter; run `extended_protocol_tests` for extended dispatch changes.
+Concurrency changes require checks beyond serial protocol tests.
 
 The WebAssembly target is `extended_moku_wasm`. It requires an activated Emscripten
 SDK and a separate CMake tree:

@@ -19,12 +19,13 @@
  * @param time_ms The time limit in milliseconds for the search. If 0, no time limit is applied.
  * @param board_size The board size to use for this position. Temporarily overrides the global
  * board size so the algebraic coordinate mapping and the search operate on the same dimensions.
+ * @param max_memory_bytes Maximum TT entry storage in bytes; 0 uses the default capacity.
  * @return A BenchResult struct containing the results of the benchmark, including the best move
  * found, nodes searched, and time taken.
  */
 BenchResult run_position(const std::string& name,
                          const std::vector<std::pair<std::string, bool>>& setup, bool side_to_move,
-                         int depth, int time_ms, int board_size)
+                         int depth, int time_ms, int board_size, uint64_t max_memory_bytes)
 {
     int prev_board_size = g_config.board_size;
     g_config.board_size = board_size;
@@ -33,7 +34,7 @@ BenchResult run_position(const std::string& name,
     for (auto& [sq, blk] : setup)
         board.make_move(algebraic_to_index(sq, board_size), blk);
 
-    MinimaxAgent agent(depth);
+    MinimaxAgent agent(depth, max_memory_bytes);
     agent.clear_tt();
 
     auto t0 = std::chrono::high_resolution_clock::now();
@@ -58,12 +59,12 @@ BenchResult run_position(const std::string& name,
 /**
  * This is the main function for the benchmark program. It initializes the benchmark environment,
  * runs a series of predefined benchmark positions, and outputs the results in a formatted table.
- * @param argc The number of command-line arguments.
- * @param argv An array of command-line argument strings. The first argument can specify the search
- * depth, and the second argument can specify the time limit in milliseconds.
+ * @param depth The maximum search depth for every workload.
+ * @param time_ms The per-workload search time limit in milliseconds; 0 selects fixed-depth search.
+ * @param max_memory_bytes Maximum TT entry storage per workload in bytes; 0 uses default capacity.
  * @return An integer status code (0 for success).
  */
-int run_benchmark(int depth, int time_ms)
+int run_benchmark(int depth, int time_ms, uint64_t max_memory_bytes)
 {
     std::cout << "moku (Version " << g_config.version << ")\n"
               << " Running Benchmark with depth " << depth << " and time limit " << time_ms << "ms"
@@ -72,11 +73,12 @@ int run_benchmark(int depth, int time_ms)
 
     std::vector<BenchResult> results;
 
-    results.push_back(run_position("empty_center", {{"H8", true}}, false, depth, time_ms));
+    results.push_back(
+        run_position("empty_center", {{"H8", true}}, false, depth, time_ms, 15, max_memory_bytes));
 
     results.push_back(run_position(
         "open_three", {{"H8", true}, {"I8", false}, {"H9", true}, {"J9", false}, {"H10", true}},
-        false, depth, time_ms));
+        false, depth, time_ms, 15, max_memory_bytes));
 
     results.push_back(run_position("block_four",
                                    {{"H8", true},
@@ -86,7 +88,7 @@ int run_benchmark(int depth, int time_ms)
                                     {"H10", true},
                                     {"A3", false},
                                     {"H11", true}},
-                                   false, depth, time_ms));
+                                   false, depth, time_ms, 15, max_memory_bytes));
 
     results.push_back(run_position("winning_four",
                                    {{"H8", false},
@@ -96,7 +98,7 @@ int run_benchmark(int depth, int time_ms)
                                     {"H10", false},
                                     {"A3", true},
                                     {"H11", false}},
-                                   false, depth, time_ms));
+                                   false, depth, time_ms, 15, max_memory_bytes));
 
     results.push_back(
         run_position("midgame_dense",
@@ -106,7 +108,7 @@ int run_benchmark(int depth, int time_ms)
                       {"J8", false},  {"H7", false},  {"J7", false},  {"H9", false},  {"I9", false},
                       {"G10", false}, {"J10", false}, {"H11", false}, {"J11", false}, {"F9", false},
                       {"L8", false}},
-                     true, depth, time_ms));
+                     true, depth, time_ms, 15, max_memory_bytes));
 
     results.push_back(run_position("endgame_sparse",
                                    {{"D4", true},
@@ -123,7 +125,7 @@ int run_benchmark(int depth, int time_ms)
                                     {"R18", false},
                                     {"G16", false},
                                     {"P7", false}},
-                                   true, depth, time_ms, 19));
+                                   true, depth, time_ms, 19, max_memory_bytes));
 
     results.push_back(run_position("tt_stress",
                                    {{"C3", true},
@@ -138,7 +140,7 @@ int run_benchmark(int depth, int time_ms)
                                     {"H9", false},
                                     {"L13", false},
                                     {"M12", false}},
-                                   true, depth, time_ms));
+                                   true, depth, time_ms, 15, max_memory_bytes));
 
     results.push_back(run_position("branching_wide",
                                    {{"C3", true},
@@ -153,7 +155,7 @@ int run_benchmark(int depth, int time_ms)
                                     {"M9", false},
                                     {"H4", false},
                                     {"J13", false}},
-                                   true, depth, time_ms));
+                                   true, depth, time_ms, 15, max_memory_bytes));
 
     std::cout << std::left << std::setw(16) << "position" << std::setw(8) << "depth"
               << std::setw(14) << "nodes" << std::setw(12) << "nodes/s" << std::setw(12)

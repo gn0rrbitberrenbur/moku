@@ -39,6 +39,7 @@ moku/
 ├── README.md - project overview
 └── .github/ - repository automation and project instructions
 ```
+
 ## Build
 ### Build and test scripts
 The project provides separate convenience scripts for each platform. These scripts wrap the underlying CMake configure/build/test commands and are intended to make local development easier.

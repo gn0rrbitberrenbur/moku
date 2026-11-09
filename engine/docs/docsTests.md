@@ -1,5 +1,5 @@
 # Test Module Reference
-moku uses GoogleTest for core and protocol checks. CMake builds two test
+moku uses GoogleTest for core and protocol checks. CMake builds three test
 executables and registers their individual cases with CTest through
 `gtest_discover_tests()`.
 
@@ -8,6 +8,7 @@ executables and registers their individual cases with CTest through
 | --- | --- | --- |
 | `moku_tests` | `tests/tests.cpp` | Conversion, board, evaluation, Gomocup engine, transposition table, and search metrics |
 | `gomocup_protocol_tests` | `tests/gomocup_protocol_test.cpp` | Focused Gomocup command behavior and response formatting |
+| `extended_protocol_tests` | `tests/extended_protocol_test.cpp` | Extended INFO node and TT memory limits, search paths, metrics, and help |
 
 Core suite names include `AlgebraicConversion`, `BoardTest`, `EvaluatorTest`,
 `EngineTest`, `TranspositionTableTest`, and `SearchMetricsTest`. The dedicated protocol fixture
@@ -18,13 +19,16 @@ scores, nearby candidates, command settings, hash consistency, replacement
 policy, mate-score normalization, TT occupancy under concurrent stores,
 per-search counter resets, completed depths, live worker gauges, and final
 debug snapshots for fixed-depth, serial timed, and SMP search.
+Memory-budget checks cover rounding, minimum capacity, shrinking and restoring
+capacity, cache invalidation, stable Zobrist keys, small-table collision locking,
+and metadata-only `max_memory` behavior in the standard Gomocup engine.
 
 ## 2. Configuration and Build
 From the repository root, in PowerShell:
 
 ```powershell
 cmake -S . -B build-engine -DMOKU_BUILD_PYTHON=OFF -DMOKU_BUILD_NNUE=OFF
-cmake --build build-engine --config Release --target moku_tests gomocup_protocol_tests
+cmake --build build-engine --config Release --target moku_tests gomocup_protocol_tests extended_protocol_tests
 ctest --test-dir build-engine -C Release --output-on-failure --no-tests=error
 ```
 

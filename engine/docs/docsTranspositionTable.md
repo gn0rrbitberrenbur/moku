@@ -4,18 +4,23 @@ different move orders. Position identity uses 64-bit Zobrist hashing with
 separate keys for black stones, white stones, and the side to move.
 
 ## 1. Storage and Entry Format
-The implementation is a fixed, direct-mapped vector, not an `unordered_map`.
+The implementation is a direct-mapped vector with power-of-two capacity, not an
+`unordered_map`. The default and maximum capacity are `2^23` slots.
 
 | Constant | Value |
 | --- | --- |
 | `TT_BITS` | 23 |
 | `TT_SIZE` | `1 << 23`, or 8388608 slots |
-| `TT_MASK` | `TT_SIZE - 1` |
+| `tt_mask` | Current slot count minus one |
 
-A hash selects its slot using `hash & TT_MASK`. Each agent owns its own table.
+A hash selects its slot using `hash & tt_mask`. Each agent owns its own table.
 Storage is allocated during construction, so creating an agent has a substantial
 memory cost: approximately `TT_SIZE * sizeof(TTEntry)`, plus overhead.
-`g_config.max_memory` does not resize or limit this allocation.
+An explicit byte budget selects the largest power-of-two slot count that fits,
+capped at `TT_SIZE`. Zero selects the default capacity; a positive budget must
+fit at least one `TTEntry`. The extended engine applies `INFO max_memory` to its
+current agent and passes the budget to benchmark agents. The standard Gomocup
+engine and default-constructed programmatic agents retain the default capacity.
 
 | `TTEntry` field | Meaning |
 | --- | --- |
@@ -28,11 +33,13 @@ memory cost: approximately `TT_SIZE * sizeof(TTEntry)`, plus overhead.
 ## 2. Public Interface
 | Method | Behavior |
 | --- | --- |
+| `TranspositionTable(max_memory_bytes = 0)` | Allocates a table using the supplied byte budget and initializes Zobrist keys |
 | `compute_hash(board, is_black_turn)` | Builds a hash from the active board and side |
 | `update_hash(hash, move, is_black_turn)` | XORs a move's color key and toggles the turn key |
 | `probe(hash, entry, ply)` | Copies a matching entry and adjusts mate-like scores |
 | `store(hash, score, depth, flag, best_move, ply)` | Writes an entry under the replacement policy |
 | `clear()` | Replaces every slot with a default entry |
+| `set_max_memory(max_memory_bytes)` | Applies the budget; changing capacity replaces storage, clears entries and occupancy, and preserves Zobrist keys |
 | `size()` | Returns allocated slots, not occupied entries |
 | `allocated_bytes()` | Returns vector capacity times `sizeof(TTEntry)`, excluding metadata and allocator overhead |
 | `occupancy_permille()` | Returns integer floor of occupied slots times 1000 divided by capacity |
@@ -86,7 +93,15 @@ The table does not validate move legality. Probe/store operations synchronize
 entry access using 256 striped mutexes. An atomic occupancy counter increments
 only when a store fills an empty slot; updates and collision replacements leave
 it unchanged. `clear()` requires no concurrent search and resets occupancy
-without releasing capacity.
+without releasing capacity. Lock selection uses the table slot index so colliding
+hashes synchronize even when capacity is smaller than the stripe count.
+
+`set_max_memory()` also requires no concurrent search. If the selected capacity
+is unchanged, it retains entries and occupancy. An undersized positive budget
+throws `std::invalid_argument`; allocation failures propagate without changing the
+table. The old vector is released after a successful replacement, so shrinking
+reduces retained entry storage. Both vectors temporarily coexist during resizing;
+the byte budget excludes this transient peak and all non-entry storage.
 
 Default entries have depth `-1`, which marks an empty slot. A probe for hash zero
 misses a cleared slot and succeeds after a real hash-zero entry is stored.

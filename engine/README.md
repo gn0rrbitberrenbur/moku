@@ -72,9 +72,16 @@ The Gomocup command set includes:
 | --- | --- | --- |
 | `DISPLAY` or `D` | none | Displays the current board and stone counts. |
 | `HELP` | none | Prints a short command summary. |
+| `INFO max_memory` | Nonnegative byte budget | Limits TT entry storage to a power-of-two capacity, at most `2^23` entries; `0` restores the default capacity. Standard Gomocup handling remains metadata-only. |
 | `BENCHMARK` | `depth time_limit_ms` (`depth` > 0, `time_limit_ms` >= 0) | Runs the predefined benchmark positions; the time limit applies to each position. |
 
 Coordinates use the `X,Y` format. Command names are case-insensitive.
+
+For example, `INFO max_memory 67108864` bounds TT entry storage to 64 MiB in the
+extended engine, including its benchmark agents. Positive budgets must fit at least
+one `TTEntry`. Resizing clears cached entries but preserves the board. Diagnostics
+use stderr; `INFO` produces no stdout response. This is not a process-wide memory
+limit. See [INFO max_memory](docs/docsExtendedProtocol.md#info-max_memory).
 
 Debug output is disabled by default. The former `--debug-output` startup flag has been
 removed. A `DEBUG_OUTPUT` handler toggles diagnostics and replies with `DEBUG_OUTPUT True`

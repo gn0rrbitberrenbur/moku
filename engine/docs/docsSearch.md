@@ -7,7 +7,7 @@ multiple workers.
 ## 1. Public Interface
 | API | Purpose |
 | --- | --- |
-| `MinimaxAgent(depth)` | Constructs an agent with an agent-local depth limit |
+| `MinimaxAgent(depth, max_memory_bytes = 0)` | Constructs an agent with a depth limit and optional TT byte budget; zero uses default capacity |
 | `get_best_move(board, is_black)` | Fixed-depth search |
 | `get_best_move_timed(board, is_black, time_limit_ms)` | Single-threaded iterative deepening |
 | `get_best_move_timed_smp(board, is_black, time_limit_ms)` | Parallel iterative deepening, or single-thread fallback |
@@ -18,6 +18,9 @@ multiple workers.
 | `get_nodes_searched()` | Returns the recursive node counter |
 | `get_tt_hits()` | Returns the transposition-table hit counter |
 | `clear_tt()` | Resets table entries without releasing table capacity |
+| `set_tt_max_memory(max_memory_bytes)` | Applies a TT byte budget with no search in progress; a capacity change clears entries |
+| `get_tt_size()` | Returns current TT slot capacity |
+| `get_tt_allocated_bytes()` | Returns current TT entry-vector allocation in bytes |
 
 Move-selection methods return an index or `-1` if no candidates exist. They
 temporarily mutate the supplied board using make/undo; the caller applies
@@ -62,6 +65,12 @@ This is an early-stop heuristic, not a promise to use the whole budget.
 A score with absolute value at least 90000 also stops iterative deepening.
 Protocol handlers derive their budgets separately; see
 [configuration](docsConfig.md).
+
+`g_config.max_nodes` applies to fixed-depth and timed searches. Zero means no
+limit; positive values cap recursive minimax node visits, excluding root move
+generation and root candidates. SMP workers share the same atomic budget. If a
+limit interrupts a search, timed search keeps the best move from the last
+completed iteration, or its initial legal-move fallback.
 
 ## 4. Lazy SMP
 The SMP entry point reads `g_config.cores`. Values of zero or one delegate to
@@ -110,7 +119,7 @@ sole-candidate returns. Periodic events use `search_progress`.
 
 | Field | Contract |
 | --- | --- |
-| `tt_capacity_entries` | Allocated TT slots; currently 8388608 |
+| `tt_capacity_entries` | Allocated TT slots; defaults to 8388608 and reflects the extended `INFO max_memory` budget |
 | `tt_allocated_bytes` | TT vector capacity times `sizeof(TTEntry)`; excludes object, locks, Zobrist arrays, and allocator overhead |
 | `tt_occupancy_permille` | Integer floor of occupied slots times 1000 divided by slot count; range 0 through 1000 |
 | `tt_probes_total` | Probe attempts since this search began, aggregated across workers |
@@ -120,7 +129,9 @@ sole-candidate returns. Periodic events use `search_progress`.
 | `alpha_beta_cutoffs_total` | Closed-window cutoffs in recursive move loops and after applying TT bounds; exact-value TT returns are excluded |
 | `root_candidates_count` | Number of generated root candidates before search, independent of the stored root result vector |
 
-TT contents and occupancy persist between searches until `clear_tt()`.
+TT contents and occupancy persist between searches until `clear_tt()` or a
+capacity-changing `set_tt_max_memory()`. The extended engine exposes the latter
+through [INFO max_memory](docsExtendedProtocol.md#info-max_memory).
 Other counters and gauges reset per search. A timed sole-candidate return
 performs no iteration and reports completed depth zero. A fixed-depth search
 reports its configured depth only after all root candidates finish.

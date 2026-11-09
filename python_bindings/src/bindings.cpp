@@ -128,7 +128,14 @@ PYBIND11_MODULE(_core, m)
         .def_readonly("best_move", &BenchResult::best_move)
         .def_readonly("score", &BenchResult::score);
 
-    m.def("run_position", &run_position, py::arg("name"), py::arg("setup"), py::arg("side_to_move"),
-          py::arg("depth"), py::arg("time_ms"), py::arg("board_size") = 15);
-    m.def("run_benchmark", &run_benchmark, py::arg("depth"), py::arg("time_ms"));
+    m.def(
+        "run_position",
+        [](const std::string& name, const std::vector<std::pair<std::string, bool>>& setup,
+           bool side_to_move, int depth, int time_ms, int board_size)
+        { return run_position(name, setup, side_to_move, depth, time_ms, board_size); },
+        py::arg("name"), py::arg("setup"), py::arg("side_to_move"), py::arg("depth"),
+        py::arg("time_ms"), py::arg("board_size") = 15);
+    m.def(
+        "run_benchmark", [](int depth, int time_ms) { return run_benchmark(depth, time_ms); },
+        py::arg("depth"), py::arg("time_ms"));
 }

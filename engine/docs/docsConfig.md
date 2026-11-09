@@ -32,7 +32,7 @@ Supported protocol commands can update selected settings at runtime.
 | `time_limit_ms` | `int` | `20000` | Per-move time setting in milliseconds |
 | `timeout_match` | `int` | `0` | Stored total game time limit in milliseconds |
 | `time_left` | `int` | `2147483647` | Stored remaining game time in milliseconds |
-| `max_memory` | `long long` | `0` | Stored memory limit in bytes |
+| `max_memory` | `long long` | `0` | Memory limit metadata in Gomocup; TT byte budget in the extended engine |
 | `game_type` | `int` | `0` | Stored opponent or game category |
 | `rule` | `int` | `0` | Stored rule bitmask |
 | `folder` | `std::string` | Empty string | Stored directory for persistent data |
@@ -116,6 +116,20 @@ There is no protocol command for changing `cores`. Set it programmatically befor
 starting a search, or change its default and rebuild. Avoid modifying the shared
 configuration while worker threads are running.
 
+### max_memory
+`INFO max_memory N` in the extended engine immediately bounds its agent's TT
+entry storage and configures subsequent benchmark agents. Zero restores the
+default `2^23` slots; positive budgets select the largest fitting power-of-two
+capacity, at most `2^23` slots, and must fit at least one `TTEntry`.
+Changing capacity clears TT entries without changing the board.
+
+The setting bounds entry-vector storage only, not total or peak process memory.
+Invalid values and allocation failures retain the previous configuration and
+table and produce stderr diagnostics without stdout output. Assigning
+`g_config.max_memory` alone does not resize an existing agent. Standard Gomocup
+handling stores the value without enforcing it. See
+[INFO max_memory](docsExtendedProtocol.md#info-max_memory) for the complete contract.
+
 ## 5. Stored Gomocup Information
 The following settings are accepted by both protocol handlers but are not
 currently used to enforce limits or select game behavior:
@@ -124,14 +138,13 @@ currently used to enforce limits or select game behavior:
 | --- | --- | --- |
 | `timeout_match` | `INFO timeout_match N` | Total game time limit in milliseconds; `0` means unlimited |
 | `time_left` | `INFO time_left N` | Remaining game time; `2147483647` means unlimited |
-| `max_memory` | `INFO max_memory N` | Memory limit in bytes; `0` means unlimited |
 | `game_type` | `INFO game_type N` | `0`: human, `1`: engine, `2`: tournament, `3`: network tournament |
 | `rule` | `INFO rule N` | Rule-variant bitmask |
 | `folder` | `INFO folder path` | Directory supplied for persistent data |
 
 Negative `time_left` values are possible under the protocol when the engine has
 run out of game time. moku stores them but does not adjust its search budget
-based on them. Total game time and memory limits must be monitored externally.
+based on them. Total game time and process-wide memory limits must be monitored externally.
 
 The specification defines the following combinable `rule` bits:
 

@@ -4,7 +4,9 @@
 #include "config.hpp"
 
 #include <iostream>
+#include <new>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -412,7 +414,43 @@ void Engine::cmd_info(std::istringstream& iss)
     }
     else if (key == "max_memory")
     {
-        iss >> g_config.max_memory;
+        long long max_memory;
+        if (!(iss >> max_memory) || max_memory < 0)
+        {
+            std::cerr << "[error] INFO max_memory expects a nonnegative integer in bytes"
+                      << std::endl;
+            return;
+        }
+        iss >> std::ws;
+        if (!iss.eof())
+        {
+            std::cerr << "[error] INFO max_memory expects exactly one integer in bytes"
+                      << std::endl;
+            return;
+        }
+
+        try
+        {
+            agent.set_tt_max_memory(static_cast<uint64_t>(max_memory));
+        }
+        catch (const std::invalid_argument& error)
+        {
+            std::cerr << "[error] INFO max_memory: " << error.what() << std::endl;
+            return;
+        }
+        catch (const std::length_error& error)
+        {
+            std::cerr << "[error] INFO max_memory: " << error.what() << std::endl;
+            return;
+        }
+        catch (const std::bad_alloc& error)
+        {
+            std::cerr << "[error] INFO max_memory: " << error.what() << std::endl;
+            return;
+        }
+        g_config.max_memory = max_memory;
+        std::cerr << "[info] TT capacity set to " << agent.get_tt_size() << " entries ("
+                  << agent.get_tt_allocated_bytes() << " bytes)" << std::endl;
     }
     else if (key == "game_type")
     {
@@ -434,6 +472,19 @@ void Engine::cmd_info(std::istringstream& iss)
             g_config.max_depth = depth;
             agent.set_max_depth(depth);
             std::cerr << "[info] Search depth set to " << depth << std::endl;
+        }
+    }
+    else if (key == "max_nodes")
+    {
+        long long max_nodes;
+        if (iss >> max_nodes && max_nodes >= 0)
+        {
+            iss >> std::ws;
+            if (iss.eof())
+            {
+                g_config.max_nodes = max_nodes;
+                std::cerr << "[info] Search node limit set to " << max_nodes << std::endl;
+            }
         }
     }
     // no answer expected for INFO command
@@ -477,6 +528,8 @@ void Engine::cmd_help()
     std::cout << "MESSAGE   TURN X,Y - Opponent move, respond with own" << std::endl;
     std::cout << "MESSAGE   BOARD ... DONE - Set board state" << std::endl;
     std::cout << "MESSAGE   INFO key value - Set parameters" << std::endl;
+    std::cout << "MESSAGE   INFO max_memory bytes - Limit TT storage (0 restores default)"
+              << std::endl;
     std::cout << "MESSAGE   ABOUT - Brain information" << std::endl;
     std::cout << "MESSAGE   DEBUG_OUTPUT - Toggle debug output" << std::endl;
     std::cout << "MESSAGE   END - Terminate" << std::endl;
@@ -501,7 +554,7 @@ void Engine::cmd_benchmark(std::istringstream& iss)
         return;
     }
 
-    run_benchmark(depth, time_limit_ms);
+    run_benchmark(depth, time_limit_ms, static_cast<uint64_t>(g_config.max_memory));
     std::cout.flush();
 }
 
