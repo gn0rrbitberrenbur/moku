@@ -28,12 +28,12 @@ std::string response(Process& process, Process::Clock::time_point deadline,
     while (true)
     {
         const auto line = process.readLine(deadline, cancelled);
-        if (debugEnabled && (line == "DEBUG_OUTPUT True" || line == "DEBUG_OUTPUT False"))
+        if (debugEnabled && (line == "METRICS True" || line == "METRICS False"))
         {
-            *debugEnabled = line == "DEBUG_OUTPUT True";
+            *debugEnabled = line == "METRICS True";
             continue;
         }
-        if (debugEnabled && line.find("DEBUG_OUTPUT") != std::string::npos &&
+        if (debugEnabled && line.find("METRICS") != std::string::npos &&
             (line.rfind("ERROR", 0) == 0 || line.rfind("UNKNOWN", 0) == 0))
         {
             continue;
@@ -271,7 +271,7 @@ void EngineWorker::run()
         if (config_.debug)
         {
             const std::string debugCommand =
-                "DEBUG_OUTPUT " + std::to_string(config_.debugOutputMilliseconds);
+                "METRICS " + std::to_string(config_.debugOutputMilliseconds);
             const auto debugDeadline =
                 std::min(startupDeadline, Process::Clock::now() + std::chrono::milliseconds(200));
             process->write(debugCommand, debugDeadline, cancelled_);
@@ -280,20 +280,20 @@ void EngineWorker::run()
                 while (true)
                 {
                     const auto line = process->readLine(debugDeadline, cancelled_);
-                    if (line == "DEBUG_OUTPUT True")
+                    if (line == "METRICS True")
                     {
                         debugEnabled = true;
                         break;
                     }
-                    if (line == "DEBUG_OUTPUT False")
+                    if (line == "METRICS False")
                     {
-                        process->write("DEBUG_OUTPUT", debugDeadline, cancelled_);
+                        process->write("METRICS", debugDeadline, cancelled_);
                         continue;
                     }
                     if (line.rfind("ERROR", 0) == 0 || line.rfind("UNKNOWN", 0) == 0)
                     {
                         config_.debug->record(config_.debugEngine, entry_.name, "debug_status",
-                                              "DEBUG_OUTPUT unsupported; using Thinking.");
+                                              "METRICS unsupported; using Thinking.");
                         break;
                     }
                 }
@@ -305,7 +305,7 @@ void EngineWorker::run()
                     throw;
                 }
                 config_.debug->record(config_.debugEngine, entry_.name, "debug_status",
-                                      "No DEBUG_OUTPUT acknowledgement; using Thinking.");
+                                      "No METRICS acknowledgement; using Thinking.");
             }
         }
         startup_.set_value();

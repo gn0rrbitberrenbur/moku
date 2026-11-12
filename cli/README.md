@@ -76,9 +76,9 @@ It is rewritten after each game.
 Select **Debug > Play vs engine** or **Debug > Engine vs engine**, then configure the game
 as usual. 
 
-The CLI probes each engine with the optional `DEBUG_OUTPUT` toggle after startup.
+The CLI probes each engine with the optional `METRICS` toggle after startup.
 
-An engine acknowledging `DEBUG_OUTPUT True` can report `[METRICS]` JSON on stderr.
+An engine acknowledging `METRICS True` can report `[METRICS]` JSON on stderr.
 The live display accepts progress and final events and includes TT capacity, allocation,
 occupancy and probes, completed depth, active workers, alpha-beta cutoffs and root candidates.
 Additional fields omitted by older engines display `-`. Debug games require a terminal with

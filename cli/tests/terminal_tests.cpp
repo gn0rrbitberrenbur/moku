@@ -466,7 +466,7 @@ int main(int argc, char** argv)
             const auto transcript = readText(entry.path());
             if (transcript.find("\"stream\":\"stdin\"") == std::string::npos ||
                 transcript.find("\"stream\":\"stdout\"") == std::string::npos ||
-                transcript.find("DEBUG_OUTPUT") == std::string::npos ||
+                transcript.find("METRICS") == std::string::npos ||
                 transcript.find("END\\r\\n") == std::string::npos)
             {
                 throw std::runtime_error("Debug UI transcript is incomplete.");

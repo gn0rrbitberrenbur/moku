@@ -10,7 +10,7 @@ measurement, not standard tournament communication.
 | `D` | Alias for `DISPLAY` | Same as `DISPLAY` |
 | `HELP` | Print a short command summary | Lines prefixed with `MESSAGE` |
 | `BENCHMARK depth time_limit_ms` | Run predefined benchmark positions | Human-readable benchmark report |
-| `DEBUG_OUTPUT [interval_ms]` | Toggle stderr diagnostics and JSON search metrics | `DEBUG_OUTPUT True` or `DEBUG_OUTPUT False` |
+| `METRICS [interval_ms]` | Toggle stderr diagnostics and JSON search metrics | `METRICS True` or `METRICS False` |
 
 Command words are case-insensitive. Standard commands and their current
 limitations are described in [docsGomocupProtocol.md](docsGomocupProtocol.md).
@@ -85,7 +85,7 @@ The command does not generate a move or modify the board.
 
 ## 4. HELP
 Prints `MESSAGE` lines describing `START`, `BEGIN`, `TURN`, `BOARD`, `INFO`,
-`ABOUT`, `END`, `DEBUG_OUTPUT`, and the extended `INFO max_memory` setting.
+`ABOUT`, `END`, `METRICS`, and the extended `INFO max_memory` setting.
 
 Use this document for the full extension reference rather than assuming that
 every implemented command appears in the help output.
@@ -118,21 +118,21 @@ It temporarily changes the global board size for each workload and restores
 it on normal completion. It uses separate boards and agents rather than
 replacing the protocol engine's current position.
 
-## 6. DEBUG_OUTPUT
-Debug output defaults to disabled. `DEBUG_OUTPUT [interval_ms]` inverts
+## 6. METRICS
+Metrics output defaults to disabled. `METRICS [interval_ms]` inverts
 `g_config.debug_output` on each call. An optional positive integer sets the
 progress interval in milliseconds; omitting it retains the current interval
 (default 10 ms). Invalid arguments produce an `ERROR` reply without toggling.
 It writes the resulting state to stdout:
 
 ```text
-DEBUG_OUTPUT True
+METRICS True
 ```
 
 or:
 
 ```text
-DEBUG_OUTPUT False
+METRICS False
 ```
 
 Conditional search and move-handling diagnostics remain on stderr. This flag

@@ -48,7 +48,7 @@ All settings shown in the example are required except `run.max_nodes` and the
 | `run.move_time_ms` | Requested `INFO timeout_turn`, integer 1 through 86400000 |
 | `run.timeout_tolerance_ms` | Additional external response allowance, 0 through 60000 ms |
 | `run.startup_timeout_ms` | Deadline per initialization or display request, 1 through 300000 ms |
-| `run.metrics_interval_ms` | Requested `DEBUG_OUTPUT` interval, 1 through 60000 ms |
+| `run.metrics_interval_ms` | Requested `METRICS` interval, 1 through 60000 ms |
 | `run.depth` | Requested maximum search depth, 1 through 20 |
 | `run.max_nodes` | Requested recursive node limit per search, integer 0 through 2147483647; optional, defaults to 0 (unlimited) |
 | `technical.move_time_ms` | Requested time per technical search, 1 through 86400000 ms; defaults to 1000 |
@@ -148,7 +148,7 @@ The runner, not an engine score, determines the result.
 ## Protocol compatibility and failures
 Before any scored game, both engines pass a logged compatibility check:
 
-1. `START 15`, `ABOUT`, time/depth/node/rule/game-type settings, and `DEBUG_OUTPUT interval`.
+1. `START 15`, `ABOUT`, time/depth/node/rule/game-type settings, and `METRICS interval`.
 2. `BOARD` probes for black-to-move and white-to-move positions.
 3. Legal returned moves and a `DISPLAY` board matching the expected stone colors.
 

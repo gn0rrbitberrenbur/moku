@@ -34,10 +34,9 @@ stdin
        -> stderr diagnostics
 ```
 
-The extended executable adds access to board display and the benchmark runner.
-Its debug-toggle handler is implemented but not yet registered for stdin commands;
-see [DEBUG_OUTPUT](docsExtendedProtocol.md#5-debug_output). The former startup flag
-has been removed.
+The extended executable adds access to board display, the benchmark runner, and
+the `METRICS` command for toggling diagnostics and search-metric output. See the
+[extended protocol reference](docsExtendedProtocol.md#6-metrics).
 The two protocol implementations are separate; they are not linked into the same
 executable.
 

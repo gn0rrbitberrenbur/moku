@@ -53,7 +53,7 @@ TT occupancy per 1000, alpha-beta cutoffs and root candidates. Only the latest s
 displayed, refreshed at the normal UI polling interval; no progress history is appended.
 The required height is `board size + 23` rows.
 
-Until valid metrics arrive (or if the engine does not support `DEBUG_OUTPUT`), the status
+Until valid metrics arrive (or if the engine does not support `METRICS`), the status
 remains Thinking. Each new search clears the preceding search's metrics. Null best moves
 and scores display `-`; best moves use board coordinates such as A1. Additional metrics omitted
 by older engines also display `-`. Final `search_finished` events update the snapshot.

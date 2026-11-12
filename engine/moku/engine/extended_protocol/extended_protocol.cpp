@@ -39,7 +39,7 @@ void Engine::run()
 }
 
 /**
- * 
+ *
  */
 void Engine::process_command(const std::string& line)
 {
@@ -99,9 +99,9 @@ void Engine::process_command(const std::string& line)
     {
         cmd_display();
     }
-    else if (cmd_upper == "DEBUG_OUTPUT")
+    else if (cmd_upper == "METRICS")
     {
-        cmd_debug_output(iss);
+        cmd_metrics(iss);
     }
     else if (cmd_upper == "HELP")
     {
@@ -531,7 +531,7 @@ void Engine::cmd_help()
     std::cout << "MESSAGE   INFO max_memory bytes - Limit TT storage (0 restores default)"
               << std::endl;
     std::cout << "MESSAGE   ABOUT - Brain information" << std::endl;
-    std::cout << "MESSAGE   DEBUG_OUTPUT - Toggle debug output" << std::endl;
+    std::cout << "MESSAGE   METRICS [interval_ms] - Toggle search metrics" << std::endl;
     std::cout << "MESSAGE   END - Terminate" << std::endl;
 }
 
@@ -559,14 +559,14 @@ void Engine::cmd_benchmark(std::istringstream& iss)
 }
 
 /**
- * This function processes the DEBUG_OUTPUT command, which toggles the debug output flag.
- * DEBUG_OUTPUT - Toggle debug output
+ * This function processes the METRICS command, which toggles search metrics output.
+ * METRICS [interval_ms] - Toggle search metrics output
  * No response expected
  * This is not part of the Gomocup Protocol.
  * @param iss An input string stream containing the command arguments
  * @return void
  */
-void Engine::cmd_debug_output(std::istringstream& iss)
+void Engine::cmd_metrics(std::istringstream& iss)
 {
     int interval_ms = g_config.metrics_logging_interval;
 
@@ -575,14 +575,14 @@ void Engine::cmd_debug_output(std::istringstream& iss)
     {
         if (!(iss >> interval_ms) || interval_ms <= 0)
         {
-            std::cout << "ERROR DEBUG_OUTPUT expects a positive interval in ms" << std::endl;
+            std::cout << "ERROR METRICS expects a positive interval in ms" << std::endl;
             return;
         }
 
         iss >> std::ws;
         if (!iss.eof())
         {
-            std::cout << "ERROR DEBUG_OUTPUT expects at most one argument" << std::endl;
+            std::cout << "ERROR METRICS expects at most one argument" << std::endl;
             return;
         }
     }
@@ -590,5 +590,5 @@ void Engine::cmd_debug_output(std::istringstream& iss)
     g_config.metrics_logging_interval = interval_ms;
     g_config.debug_output = !g_config.debug_output;
 
-    std::cout << "DEBUG_OUTPUT " << (g_config.debug_output ? "True" : "False") << std::endl;
+    std::cout << "METRICS " << (g_config.debug_output ? "True" : "False") << std::endl;
 }

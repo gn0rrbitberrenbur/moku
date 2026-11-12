@@ -63,7 +63,7 @@ int main(int argc, char** argv)
             reply("MESSAGE ready");
             reply("OK - mock ready");
         }
-        else if (command == "DEBUG_OUTPUT")
+        else if (command == "METRICS")
         {
             if (mode.find("debug-delayed") != std::string::npos)
             {
@@ -76,12 +76,12 @@ int main(int argc, char** argv)
             if (mode.find("metrics") == std::string::npos)
             {
                 reply(mode.find("debug-delayed") == std::string::npos
-                          ? "UNKNOWN DEBUG_OUTPUT"
-                          : "ERROR unsupported command: DEBUG_OUTPUT");
+                          ? "UNKNOWN METRICS"
+                          : "ERROR unsupported command: METRICS");
                 continue;
             }
             debug = !debug;
-            reply(debug ? "DEBUG_OUTPUT True" : "DEBUG_OUTPUT False");
+            reply(debug ? "METRICS True" : "METRICS False");
         }
         else if (command == "INFO")
         {

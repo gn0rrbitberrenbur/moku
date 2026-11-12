@@ -171,6 +171,26 @@ TEST_F(ExtendedProtocolTest, HelpDescribesMemoryLimit)
     EXPECT_NE(engine.execute("HELP").find("INFO max_memory bytes"), std::string::npos);
 }
 
+TEST_F(ExtendedProtocolTest, MetricsCommandTogglesOutputAndValidatesInterval)
+{
+    TestExtendedEngine engine;
+
+    EXPECT_EQ(engine.execute("METRICS 25"), "METRICS True\n");
+    EXPECT_TRUE(g_config.debug_output);
+    EXPECT_EQ(g_config.metrics_logging_interval, 25);
+
+    EXPECT_EQ(engine.execute("METRICS"), "METRICS False\n");
+    EXPECT_FALSE(g_config.debug_output);
+    EXPECT_EQ(g_config.metrics_logging_interval, 25);
+
+    EXPECT_EQ(engine.execute("METRICS 0"), "ERROR METRICS expects a positive interval in ms\n");
+    EXPECT_FALSE(g_config.debug_output);
+    EXPECT_EQ(engine.execute("METRICS 10 20"),
+              "ERROR METRICS expects at most one argument\n");
+    EXPECT_FALSE(g_config.debug_output);
+    EXPECT_NE(engine.execute("HELP").find("METRICS [interval_ms]"), std::string::npos);
+}
+
 TEST_F(ExtendedProtocolTest, InfoMaxNodesAcceptsNonnegativeValues)
 {
     TestExtendedEngine engine;

@@ -52,13 +52,13 @@ CPU scheduling, search parallelism and optional INFO support remain the engine's
 ## Debug metrics and transcripts
 Only debug games set `EngineConfig.debug` to a shared `DebugSession`, with `debugEngine` equal
 to the player's color index (0 = Black, 1 = White, including human games).
-After START and INFO, each worker sends `DEBUG_OUTPUT <interval_ms>`, never a startup flag.
+After START and INFO, each worker sends `METRICS <interval_ms>`, never a startup flag.
 The configured interval defaults to 100 ms.
 The optional acknowledgement has a maximum 200 ms startup wait, bounded by the existing startup
-deadline. `DEBUG_OUTPUT True` enables parsing. If an engine reports False because debug was
+deadline. `METRICS True` enables parsing. If an engine reports False because metrics were
 already enabled on launch, the worker toggles it once more to enable it.
 ERROR/UNKNOWN or no acknowledgement disables metrics without failing startup. Late toggle
-acknowledgements and ERROR/UNKNOWN replies naming `DEBUG_OUTPUT` do not contaminate move replies.
+acknowledgements and ERROR/UNKNOWN replies naming `METRICS` do not contaminate move replies.
 Late True acknowledgements also enable metrics for subsequent progress events.
 Move deadlines are unchanged.
 
@@ -115,7 +115,7 @@ The automatically named report in `debug-reports` is a single JSON document:
       "engine": 0,
       "name": "Moku",
       "stream": "stdin",
-      "text": "DEBUG_OUTPUT 100\r\n"
+      "text": "METRICS 100\r\n"
     }
   ]
 }

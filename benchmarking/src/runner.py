@@ -205,12 +205,12 @@ class Engine:
         self.send("INFO rule 0")
         self.send("INFO game_type 2")
         deadline = time.monotonic() + timeout / 1000
-        self.send(f"DEBUG_OUTPUT {config.metrics_interval_ms}")
+        self.send(f"METRICS {config.metrics_interval_ms}")
         response = self.receive(deadline)
-        if response == "DEBUG_OUTPUT False":
-            self.expect(f"DEBUG_OUTPUT {config.metrics_interval_ms}", "DEBUG_OUTPUT True", timeout)
-        elif response != "DEBUG_OUTPUT True":
-            raise EngineFailure("protocol_error", f"{self.config.name}: invalid DEBUG_OUTPUT reply")
+        if response == "METRICS False":
+            self.expect(f"METRICS {config.metrics_interval_ms}", "METRICS True", timeout)
+        elif response != "METRICS True":
+            raise EngineFailure("protocol_error", f"{self.config.name}: invalid METRICS reply")
         return about
 
     def move(self, board: Board, first: bool, config: Config) -> Move:

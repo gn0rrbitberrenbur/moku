@@ -476,7 +476,7 @@ void debugTests(const std::filesystem::path& directory, const std::filesystem::p
         for (std::size_t index = 0; index < 2; ++index)
         {
             require(commands[index].find("START 5\r\n") != std::string::npos &&
-                        commands[index].find("DEBUG_OUTPUT 100\r\n") != std::string::npos &&
+                        commands[index].find("METRICS 100\r\n") != std::string::npos &&
                         commands[index].find("BEGIN\r\n") != std::string::npos &&
                         commands[index].find("END\r\n") != std::string::npos &&
                         replies[index].find("0,0") != std::string::npos &&

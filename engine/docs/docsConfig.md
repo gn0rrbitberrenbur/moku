@@ -177,11 +177,10 @@ These diagnostics are written to stderr to preserve protocol output on stdout.
 There is no `INFO` command for this flag, and the former `--debug-output` startup
 flag has been removed.
 
-The extended engine's `cmd_debug_output()` handler toggles this value and replies
-on stdout with `DEBUG_OUTPUT True` or `DEBUG_OUTPUT False`. It is listed by
-`HELP`, but is not yet registered in `process_command()`: sending `DEBUG_OUTPUT`
-currently returns `UNKNOWN DEBUG_OUTPUT`. See the
-[extended protocol reference](docsExtendedProtocol.md#5-debug_output).
+The extended engine's `cmd_metrics()` handler toggles this value and replies
+on stdout with `METRICS True` or `METRICS False`. The `METRICS [interval_ms]`
+command is listed by `HELP` and registered in `process_command()`. See the
+[extended protocol reference](docsExtendedProtocol.md#6-metrics).
 
 This is not a universal logging switch: for example, a valid `INFO depth`
 command writes its depth-change message to stderr regardless of this flag.

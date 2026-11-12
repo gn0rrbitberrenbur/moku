@@ -31,7 +31,7 @@ protected:
     // Debug commands
     void cmd_display();
     void cmd_help();
-    void cmd_debug_output(std::istringstream& iss);
+    void cmd_metrics(std::istringstream& iss);
 
     // todo
     void cmd_benchmark(std::istringstream& iss);

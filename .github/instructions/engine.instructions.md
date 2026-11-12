@@ -124,8 +124,8 @@ protocol responses; emit diagnostics and metrics to stderr.
 - Protocol search budget is `max(100, timeout_turn - 500)` for a positive turn timeout,
   otherwise 5000 ms. `INFO` writes diagnostics, when applicable, to stderr.
 - The extended dispatcher adds `DISPLAY`/`D`, `HELP`, `BENCHMARK depth time_limit_ms`,
-  and `DEBUG_OUTPUT [interval_ms]`. Debug toggling accepts at most one positive integer
-  interval and replies exactly `DEBUG_OUTPUT True` or `DEBUG_OUTPUT False`.
+  and `METRICS [interval_ms]`. Metrics toggling accepts at most one positive integer
+  interval and replies exactly `METRICS True` or `METRICS False`.
 - Positive benchmark time selects SMP; zero selects fixed-depth search. Benchmarking
   disables debug output and restores board size on normal return. Report fields for
   configured depth and placeholder score/TT size require interpretation against

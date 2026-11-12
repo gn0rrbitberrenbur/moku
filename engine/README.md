@@ -72,6 +72,7 @@ The Gomocup command set includes:
 | --- | --- | --- |
 | `DISPLAY` or `D` | none | Displays the current board and stone counts. |
 | `HELP` | none | Prints a short command summary. |
+| `METRICS` | Optional interval in milliseconds | Toggles diagnostics and search-metric output; replies with `METRICS True` or `METRICS False`. |
 | `INFO max_memory` | Nonnegative byte budget | Limits TT entry storage to a power-of-two capacity, at most `2^23` entries; `0` restores the default capacity. Standard Gomocup handling remains metadata-only. |
 | `BENCHMARK` | `depth time_limit_ms` (`depth` > 0, `time_limit_ms` >= 0) | Runs the predefined benchmark positions; the time limit applies to each position. |
 
@@ -83,11 +84,11 @@ one `TTEntry`. Resizing clears cached entries but preserves the board. Diagnosti
 use stderr; `INFO` produces no stdout response. This is not a process-wide memory
 limit. See [INFO max_memory](docs/docsExtendedProtocol.md#info-max_memory).
 
-Debug output is disabled by default. The former `--debug-output` startup flag has been
-removed. A `DEBUG_OUTPUT` handler toggles diagnostics and replies with `DEBUG_OUTPUT True`
-or `DEBUG_OUTPUT False`, but it is not yet registered in the command dispatcher. Sending
-`DEBUG_OUTPUT` currently returns `UNKNOWN DEBUG_OUTPUT`, despite its entry in `HELP`.
-See the [extended protocol reference](docs/docsExtendedProtocol.md#5-debug_output) for details.
+Metrics output is disabled by default. The `METRICS [interval_ms]` command toggles
+diagnostics and search metrics; an optional positive integer sets the progress interval.
+The command replies with `METRICS True` or `METRICS False`. Search events use `[METRICS]`
+JSON on stderr. See the [extended protocol reference](docs/docsExtendedProtocol.md#6-metrics)
+for details.
 
 An empty board starts at its center. The default board size is 15, search depth is 12, and the
 default turn time limit is 20 seconds. Settings such as turn time and search depth can be sent

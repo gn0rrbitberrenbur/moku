@@ -85,7 +85,7 @@ Transport timestamps describe observed chunks, not exact engine computation time
 | `INFO rule 0` / `1` | Freestyle (at least five) / Standard (exactly five) as requested by the CLI |
 | `INFO game_type` | Opponent/game configuration, not a strength or hardware metric |
 | `INFO max_memory` | Requested setting, not evidence of actual process memory consumption |
-| `DEBUG_OUTPUT interval` | Debug toggle with requested logging interval in ms; inspect acknowledgement |
+| `METRICS interval` | Search-metrics toggle with requested logging interval in ms; inspect acknowledgement |
 | `BEGIN` | Request the first move on an empty board |
 | `TURN x,y` | Supply an opponent move and request the engine's next move |
 | `BOARD ... DONE` | Replace the engine position and request a move; field 1 = own, 2 = opponent |
