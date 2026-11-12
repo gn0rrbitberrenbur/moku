@@ -56,8 +56,11 @@ the ownership list below are relative to the repository root.
 - Alpha-beta search maximizes black and minimizes white. Search returns an index or
   `-1`; the caller commits the selected move. Preserve make/undo state consistency.
 - Timed single-thread search uses iterative deepening and retains completed iterations.
+  `get_completed_depth()` exposes the completed-depth counter for consumers such as
+  dataset quality gating; zero means no root iteration completed.
   Time checks are cooperative. Its root candidates carry move, black-positive score,
-  and node count; pruned search scores can represent bounds.
+  and node count; each root candidate is searched with an independent full window
+  that reuses only exact transposition-table entries at the same depth.
 - Fixed-depth search updates its root score. Timed single-thread search also refreshes
   the candidate collection. Multiworker SMP publishes the deepest completed result
   from any worker, while root score/candidate metadata retain their prior values.

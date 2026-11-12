@@ -10,9 +10,10 @@ Only the engine whose turn it is receives a search command.
 One game runs at a time.
 
 ## Running a match
-Run from the repository root:
+Install the benchmark's Python dependencies and run from the repository root:
 
 ```text
+python -m pip install -r benchmarking/requirements.txt
 python -m benchmarking.src benchmarking/example.toml
 ```
 
@@ -37,8 +38,8 @@ SPRT can stop after a complete pair. Without an SPRT decision, the maximum is 20
 There are no engine source changes or additional build dependencies.
 
 ## Configuration contract
-All settings shown in the example are required. Unknown keys and invalid values
-produce errors before play.
+All settings shown in the example are required except `run.max_nodes` and the
+`technical` section. Unknown keys and invalid values produce errors before play.
 
 | Section/key | Contract |
 | --- | --- |
@@ -49,6 +50,10 @@ produce errors before play.
 | `run.startup_timeout_ms` | Deadline per initialization or display request, 1 through 300000 ms |
 | `run.metrics_interval_ms` | Requested `DEBUG_OUTPUT` interval, 1 through 60000 ms |
 | `run.depth` | Requested maximum search depth, 1 through 20 |
+| `run.max_nodes` | Requested recursive node limit per search, integer 0 through 2147483647; optional, defaults to 0 (unlimited) |
+| `technical.move_time_ms` | Requested time per technical search, 1 through 86400000 ms; defaults to 1000 |
+| `technical.depth` | Requested maximum depth per technical search, 1 through 20; defaults to 12 |
+| `technical.repetitions` | Repetitions per position and engine, 1 through 100; defaults to 5 |
 | `engines.name` | Distinct, nonempty engine label |
 | `engines.command` | Nonempty argument array; executable must resolve |
 | `engines.cwd` | Existing engine working directory |
@@ -57,7 +62,41 @@ produce errors before play.
 | `sprt.alpha`, `sprt.beta` | Nominal error rates, each strictly between 0 and 0.5 |
 | `sprt.min_pairs` | Minimum complete opening pairs before a decision, 1 through 100 |
 
-Both engines receive identical requested time, depth, and metric settings.
+Both engines receive identical requested time, depth, node limit, and metric settings.
+The runner sends `INFO max_nodes` during every engine initialization, including
+preflight and each game. In the current extended moku engine, a positive limit
+caps recursive minimax node visits across all workers per search; root candidate
+generation and evaluation are excluded. Time, depth, and search-specific stopping
+conditions still apply and can stop a search before the node limit is reached.
+`INFO` has no acknowledgment, so compatibility checks do not prove that another
+engine honors the requested limit.
+
+## Technical benchmark
+
+After the paired games, both engines search the same six deterministic 15x15
+positions: early, attacking and defensive threats, clustered and dispersed
+midgames, and edge interactions. These exercise different workloads; they do not
+prove that a particular optimization was triggered. Each search starts a fresh
+process with a cold transposition table. The order of the engines alternates
+between repetitions. The technical section sets its own time and depth; the
+runner sends `INFO max_nodes 0` regardless of `run.max_nodes`. It uses the
+configured startup timeout and move timeout tolerance from `[run]`. The external
+response deadline and engine-specific stopping conditions still apply.
+
+The report compares per-position medians for elapsed time, nodes, nodes per
+second, TT hits, completed depth, TT capacity and probes, alpha-beta cutoffs,
+and root candidates. A comparison uses only repetitions where both engines
+finished and reported that metric. Missing values and percentages with a zero
+reference are `n/a`. Graphs show pooled matched medians; these numbers describe
+the chosen positions and machine, not universal speed or playing strength.
+The benchmark runs the `BOARD` search path; it does not measure `TURN`/SMP
+or warm-table reuse. Engines can implement or count metrics differently, and
+the protocol does not confirm that an engine honors the requested limits.
+
+Engine failures, timeouts, illegal moves, and absent or ambiguous final metric
+snapshots are recorded per observation and the remaining measurements continue.
+The Markdown report lists those errors. File, logging, and cleanup errors abort
+the run rather than being presented as valid observations.
 
 The wall-clock response deadline includes the requested move time plus tolerance, starting before the move request is sent. 
 
@@ -109,7 +148,7 @@ The runner, not an engine score, determines the result.
 ## Protocol compatibility and failures
 Before any scored game, both engines pass a logged compatibility check:
 
-1. `START 15`, `ABOUT`, time/depth/rule/game-type settings, and `DEBUG_OUTPUT interval`.
+1. `START 15`, `ABOUT`, time/depth/node/rule/game-type settings, and `DEBUG_OUTPUT interval`.
 2. `BOARD` probes for black-to-move and white-to-move positions.
 3. Legal returned moves and a `DISPLAY` board matching the expected stone colors.
 
@@ -189,6 +228,13 @@ Every invocation creates its own folder:
     game-002.json
     ...
     summary.json
+    technical.json
+    technical-0001.json
+    ...
+    report.md
+    results.svg
+    depth_completed.svg, nps.svg, elapsed_ms.svg, nodes_total.svg
+    technical-nps.svg, technical-elapsed_ms.svg, technical-depth_completed.svg
 ```
 
 - Configuration and opening files are snapshots. Relative paths in the copied
@@ -199,6 +245,10 @@ Every invocation creates its own folder:
   the executable itself, not arbitrary dependencies, wrappers, or argument files.
 - Each game file contains opening/color metadata, an ordered event array, the
   complete move list, and its result.
+- `technical.json` records the technical settings, positions, individual final
+  metrics, failures and transcript names. Each `technical-NNNN.json` contains
+  one search's protocol events and result. The summary of completed games is
+  finalized even when the subsequent technical phase is interrupted.
 - Every stdout/stderr line has decoded `text` and `raw_base64` containing the
   exact received bytes, including line endings or invalid UTF-8. Commands include
   the sent CRLF terminator. An unterminated final output fragment is also retained.
@@ -218,6 +268,19 @@ Every invocation creates its own folder:
   or Ctrl+C. It records W/D/L, color and technical breakdowns, paired statistics,
   and game results. An unmatched completed game is listed but excluded from
   paired Elo/SPRT calculations.
+- After normal completion, `report.md` and its SVG charts summarize paired results,
+  Elo uncertainty and SPRT, color and technical outcomes, per-engine median search
+  metrics, and the probe-weighted TT hit rate. Only final metric snapshots from
+  completed game logs are used; preflight and progress snapshots are excluded.
+  Missing metrics are displayed as `n/a`, with sample counts. Charts for metrics
+  with no samples are omitted. SVG files must remain beside the Markdown file.
+  Matplotlib generates the SVG charts without opening a graphical window.
+  The runner checks for Matplotlib before starting a match. If report generation fails, the error is
+  surfaced and the completed match's manifest, summary, and game logs remain.
+  Interrupted and failed runs retain their logs and summary but do not automatically
+  generate a report. A report can be generated from finalized files with
+  `from benchmarking.src.create_report import create_report; create_report(Path("run-folder"))`
+  after importing `Path` from `pathlib`.
 
 Game JSON streams to disk and flushes each event, so memory use does not grow
 with the entire log. The closing result is written after pipe drainage. Normal

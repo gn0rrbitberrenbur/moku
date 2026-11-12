@@ -123,7 +123,8 @@ TEST_F(MokuContract, BestMoveOnEmptyBoardReturnsCenter)
     const std::vector<RootCandidate>& cands = agent.get_last_root_candidates();
     ASSERT_EQ(cands.size(), std::size_t{1});
     EXPECT_EQ(cands[0].move, rc(7, 7));
-    EXPECT_FLOAT_EQ(agent.get_last_root_score(), 0.0f);
+    EXPECT_FLOAT_EQ(agent.get_last_root_score(), cands[0].score);
+    EXPECT_GT(agent.get_nodes_searched(), 0);
 }
 
 TEST_F(MokuContract, BestMoveReturnsValidCandidate)

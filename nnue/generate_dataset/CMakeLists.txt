@@ -1,6 +1,7 @@
 add_executable(nnue_gen
     src/main.cpp
     src/nnue.cpp
+    src/quality.cpp
 )
 target_include_directories(nnue_gen PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
@@ -14,7 +15,7 @@ moku_enable_warnings(nnue_gen)
 if(MOKU_BUILD_TESTS)
     include(GoogleTest)
 
-    add_executable(nnue_tests tests/test_moku.cpp)
+    add_executable(nnue_tests tests/test_moku.cpp tests/test_generation.cpp src/nnue.cpp src/quality.cpp)
     target_include_directories(nnue_tests PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/include"
         "${CMAKE_SOURCE_DIR}/engine/moku"

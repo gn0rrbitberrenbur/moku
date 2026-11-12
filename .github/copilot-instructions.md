@@ -22,7 +22,7 @@ Repository-relative paths:
 | `benchmarking/` | Standalone paired Python engine matches and raw/structured debug-metric logs |
 | `engine/docs/` | Module references; entry point `docsOverview.md` |
 | `engine/CMakeLists.txt` | Additional engine build description; inspect root routing before editing |
-| `nnue/generate_dataset/` | Self-play CLI, binary shard writer, NumPy reader, core contract tests |
+| `nnue/generate_dataset/` | Tactical-safe self-play CLI, v3 shards and manifests, NumPy reader, quality analysis and tests |
 | `python_bindings/src/bindings.cpp` | pybind11 API definitions |
 | `python_bindings/python/pymoku/` | Python package, extension re-export, typing marker |
 | `python_bindings/tests/` | pytest coverage for the extension |

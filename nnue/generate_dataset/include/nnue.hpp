@@ -1,20 +1,31 @@
 #pragma once
 #include "game/board.hpp"
+#include "search/minimax.hpp"
 
 #include <bitset>
 #include <cstdint>
 #include <filesystem>
+#include <random>
 #include <string>
 #include <thread>
 #include <vector>
 
 // Fixed-point scale applied to int16 value/score targets.
-constexpr int16_t NNUE_SCORE_SCALE = 100;
+constexpr int16_t NNUE_SCORE_SCALE = 10000;
 // Maximum number of policy entries stored per sample.
 constexpr int NNUE_MAX_POLICY = 8;
 // Dataset format identifiers.
 constexpr uint32_t NNUE_DATASET_MAGIC = 0x314E4E47u; // 'GNN1' little-endian
-constexpr uint32_t NNUE_DATASET_VERSION = 2u;
+constexpr uint32_t NNUE_DATASET_VERSION = 3u;
+
+enum NNUESampleFlags : uint16_t
+{
+    SEARCH_VALID = 1,
+    EXPLORED = 2,
+    IMMEDIATE_WIN = 4,
+    FORCED_DEFENSE = 8,
+    RELABELLED = 16
+};
 
 struct NNUEDatasetConfig
 {
@@ -24,17 +35,29 @@ struct NNUEDatasetConfig
     std::size_t target_positions = 1'000'000;
     unsigned seed = 1234;
 
-    // temperature schedule for move sampling
-    double open_temp = 1.5; // temperature at ply 0
-    double min_temp = 0.05; // asymptotic minimum temperature
-    // temperature used to convert candidate scores into the policy target
-    double policy_temp = 1.0;
+    unsigned split_seed = 2026;
+    int explore_plies = 16;
+    int explore_top_k = 4;
+    double explore_probability = 0.15;
+    double explore_max_loss = 200.0;
+    double sampling_temperature = 100.0;
+    double policy_temp = 200.0;
+    double score_norm = 1000.0;
+    int min_depth = 1;
+    int sample_stride = 2;
+    int max_samples_per_game = 32;
+    // Zero disables selective higher-budget relabeling.
+    int relabel_every = 0;
+    int relabel_depth = 14;
+    int relabel_time_ms = 80000;
+    uint64_t tt_memory_bytes = 16 * 1024 * 1024;
+    std::string opening_pool_path;
     // TD(lambda) weight for the blended value target
     double td_lambda = 0.7;
     // randomized (unstored) opening plies per game for position diversity
     int opening_min = 2;
     int opening_max = 8;
-    // fraction of whole games routed to the validation split
+    // Fraction of canonical opening hash space assigned to validation.
     double val_fraction = 0.05;
     // samples per shard file
     std::size_t shard_size = 1'000'000;
@@ -50,7 +73,7 @@ struct NNUEDatasetConfig
         std::thread::hardware_concurrency() == 0 ? 1 : std::thread::hardware_concurrency();
 };
 
-// One quantized policy target: move index and probability (sums to ~65535).
+// One quantized policy target; active probabilities sum to 65535.
 struct PolicyEntry
 {
     uint16_t move;
@@ -70,7 +93,39 @@ struct NNUESample
     int16_t final_value = 0;  // STM game result, scaled
     int16_t td_value = 0;     // STM TD(lambda) target, scaled
     PolicyEntry policy[NNUE_MAX_POLICY] = {};
+    uint64_t game_id = 0;
+    uint64_t opening_id = 0;
+    uint64_t position_key = 0;
+    float raw_search = 0.0f;
+    float played_score = 0.0f;
+    uint64_t nodes = 0;
+    uint16_t depth = 0;
+    uint16_t played_move = 0;
+    uint16_t flags = SEARCH_VALID;
+    uint8_t end_reason = 0; // 1 = five in a row, 2 = full board
+    int8_t tactical = 0;    // 1 = immediate win, -1 = unavoidable immediate loss
 };
+
+namespace nnue_quality
+{
+struct Selection
+{
+    int move;
+    uint16_t flags;
+    int8_t tactical;
+};
+
+// Canonical absolute-color board key under all eight D4 symmetries.
+std::string canonical_key(const Board& board, bool black_to_move);
+uint64_t key_hash(const std::string& key);
+bool validation_opening(const std::string& canonical_opening, unsigned split_seed,
+                        double validation_fraction);
+// Protect one-ply wins and defenses before exploring plausible searched moves.
+Selection select_move(Board& board, bool black_to_move,
+                      const std::vector<RootCandidate>& candidates, int best_move, int ply,
+                      const NNUEDatasetConfig& config, std::mt19937& rng);
+std::vector<std::vector<int>> load_opening_pool(const std::string& path, int board_size);
+} // namespace nnue_quality
 
 // On-disk header written at the start of every shard.
 struct DatasetHeader
@@ -96,4 +151,7 @@ public:
 private:
     std::vector<NNUESample> samples;
     std::vector<NNUESample> val_samples;
+    uint64_t generated_games = 0;
+    uint64_t duplicate_positions = 0;
+    std::vector<std::vector<int>> used_openings;
 };

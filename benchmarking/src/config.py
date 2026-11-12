@@ -26,6 +26,13 @@ class SprtConfig:
 
 
 @dataclass(frozen=True)
+class TechnicalConfig:
+    move_time_ms: int = 1000
+    depth: int = 12
+    repetitions: int = 5
+
+
+@dataclass(frozen=True)
 class Config:
     source: Path
     output_dir: Path
@@ -37,6 +44,8 @@ class Config:
     depth: int
     engines: tuple[EngineConfig, EngineConfig]
     sprt: SprtConfig
+    max_nodes: int = 0
+    technical: TechnicalConfig = TechnicalConfig()
 
 
 def table(value: object, name: str, keys: set[str]) -> Mapping[str, object]:
@@ -75,11 +84,11 @@ def text(data: Mapping[str, object], key: str) -> str:
 def load_config(path: Path) -> Config:
     source = path.resolve()
     with source.open("rb") as stream:
-        root = table(tomllib.load(stream), "root", {"run", "engines", "sprt"})
+        root = table(tomllib.load(stream), "root", {"run", "engines", "sprt", "technical"})
     run = table(
         root.get("run"), "run",
         {"output_dir", "openings", "move_time_ms", "timeout_tolerance_ms",
-         "startup_timeout_ms", "metrics_interval_ms", "depth"},
+         "startup_timeout_ms", "metrics_interval_ms", "depth", "max_nodes"},
     )
     base = source.parent
     engines_data = root.get("engines")
@@ -117,6 +126,15 @@ def load_config(path: Path) -> Config:
         raise ValueError("SPRT requires -1000 <= elo0 < elo1 <= 1000")
     if not 0 < alpha < 0.5 or not 0 < beta < 0.5:
         raise ValueError("SPRT alpha and beta must be in (0, 0.5)")
+    technical = table(root.get("technical", {}), "technical", {"move_time_ms", "depth", "repetitions"})
+    technical_defaults = TechnicalConfig()
+    technical_config = TechnicalConfig(
+        integer(technical, "move_time_ms", 1, 86_400_000)
+        if "move_time_ms" in technical else technical_defaults.move_time_ms,
+        integer(technical, "depth", 1, 20) if "depth" in technical else technical_defaults.depth,
+        integer(technical, "repetitions", 1, 100)
+        if "repetitions" in technical else technical_defaults.repetitions,
+    )
     return Config(
         source, (base / text(run, "output_dir")).resolve(),
         (base / text(run, "openings")).resolve(),
@@ -127,4 +145,6 @@ def load_config(path: Path) -> Config:
         integer(run, "depth", 1, 20),
         (engines[0], engines[1]),
         SprtConfig(enabled, elo0, elo1, alpha, beta, integer(sprt, "min_pairs", 1, 100)),
+        integer(run, "max_nodes", 0, 2_147_483_647) if "max_nodes" in run else 0,
+        technical_config,
     )

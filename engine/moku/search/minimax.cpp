@@ -82,14 +82,6 @@ int MinimaxAgent::get_best_move_timed(Board& board, bool is_black, int time_limi
         return -1;
     }
 
-    // if only one move possible, return immediately
-    if (moves.size() == 1)
-    {
-        last_root_score = 0.0f;
-        last_root_candidates = {RootCandidate{moves[0], 0.0f, 0}};
-        finish_search_metrics(moves[0]);
-        return moves[0];
-    }
     workers_active.store(1, std::memory_order_relaxed);
 
     // set best_move to first move as fallback
@@ -128,9 +120,6 @@ int MinimaxAgent::get_best_move_timed(Board& board, bool is_black, int time_limi
         float current_best_score = is_black ? -std::numeric_limits<float>::infinity()
                                             : std::numeric_limits<float>::infinity();
 
-        float alpha = -std::numeric_limits<float>::infinity();
-        float beta = std::numeric_limits<float>::infinity();
-
         std::vector<RootCandidate> depth_candidates;
         depth_candidates.reserve(moves.size());
 
@@ -156,7 +145,10 @@ int MinimaxAgent::get_best_move_timed(Board& board, bool is_black, int time_limi
             }
             else
             {
-                score = minimax(board, depth - 1, alpha, beta, !is_black, new_hash);
+                // Root candidate scores feed policy targets and must be exact, not bounds.
+                const float alpha = -std::numeric_limits<float>::infinity();
+                const float beta = std::numeric_limits<float>::infinity();
+                score = minimax(board, depth - 1, alpha, beta, !is_black, new_hash, true);
             }
             board.undo_move(move);
 
@@ -176,7 +168,6 @@ int MinimaxAgent::get_best_move_timed(Board& board, bool is_black, int time_limi
                     current_best_score = score;
                     current_best_move = move;
                 }
-                alpha = std::max(alpha, score);
             }
             else
             {
@@ -185,7 +176,6 @@ int MinimaxAgent::get_best_move_timed(Board& board, bool is_black, int time_limi
                     current_best_score = score;
                     current_best_move = move;
                 }
-                beta = std::min(beta, score);
             }
 
             progress_best_move.store(current_best_move, std::memory_order_relaxed);
@@ -252,7 +242,7 @@ int MinimaxAgent::get_best_move_timed(Board& board, bool is_black, int time_limi
  * @param hash The Zobrist hash of the current board state.
  */
 float MinimaxAgent::minimax(Board& board, int depth, float alpha, float beta, bool is_maximizing,
-                            uint64_t hash)
+                            uint64_t hash, bool exact_score)
 {
     if (search_aborted.load(std::memory_order_relaxed))
         return 0;
@@ -288,22 +278,25 @@ float MinimaxAgent::minimax(Board& board, int depth, float alpha, float beta, bo
     {
         tt_hits.fetch_add(1, std::memory_order_relaxed);
 
-        if (entry.depth >= depth)
+        if (entry.depth >= depth && (!exact_score || entry.depth == depth))
         {
             if (entry.flag == TTEntry::EXACT)
             {
                 return entry.score;
             }
-            if (entry.flag == TTEntry::LOWERBOUND)
+            if (!exact_score)
             {
-                alpha = std::max(alpha, entry.score);
-            }
-            if (entry.flag == TTEntry::UPPERBOUND)
-            {
-                beta = std::min(beta, entry.score);
+                if (entry.flag == TTEntry::LOWERBOUND)
+                {
+                    alpha = std::max(alpha, entry.score);
+                }
+                if (entry.flag == TTEntry::UPPERBOUND)
+                {
+                    beta = std::min(beta, entry.score);
+                }
             }
 
-            if (alpha >= beta)
+            if (!exact_score && alpha >= beta)
             {
                 alpha_beta_cutoffs.fetch_add(1, std::memory_order_relaxed);
                 return entry.score;
@@ -366,7 +359,7 @@ float MinimaxAgent::minimax(Board& board, int depth, float alpha, float beta, bo
             }
             else
             {
-                eval = minimax(board, depth - 1, alpha, beta, false, new_hash);
+                eval = minimax(board, depth - 1, alpha, beta, false, new_hash, exact_score);
             }
             board.undo_move(move);
 
@@ -411,7 +404,7 @@ float MinimaxAgent::minimax(Board& board, int depth, float alpha, float beta, bo
             }
             else
             {
-                eval = minimax(board, depth - 1, alpha, beta, true, new_hash);
+                eval = minimax(board, depth - 1, alpha, beta, true, new_hash, exact_score);
             }
             board.undo_move(move);
 

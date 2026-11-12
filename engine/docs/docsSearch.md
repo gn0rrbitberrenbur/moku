@@ -13,6 +13,7 @@ multiple workers.
 | `get_best_move_timed_smp(board, is_black, time_limit_ms)` | Parallel iterative deepening, or single-thread fallback |
 | `set_max_depth(depth)` | Updates the agent depth if the value is positive |
 | `get_max_depth()` | Returns the configured limit, not the completed search depth |
+| `get_completed_depth()` | Returns the deepest completed root iteration of the last search, or zero when none completes |
 | `get_last_root_score()` | Returns the last score published by a supporting path |
 | `get_last_root_candidates()` | Returns the stored root candidate vector |
 | `get_nodes_searched()` | Returns the recursive node counter |
@@ -51,7 +52,8 @@ after root moves. These entry points are therefore not identical wrappers.
 The single-threaded timed path searches depths 1 through the configured maximum.
 Only a completed iteration replaces the committed move and root candidates.
 If the first iteration cannot finish, the first generated candidate remains
-the fallback. A sole candidate returns immediately.
+the fallback. A sole candidate is searched like any other root move so its
+published score reflects the position rather than a synthetic zero.
 
 Time is checked at root moves and approximately every 1000 recursive nodes.
 The check is not a hard real-time deadline. After a completed iteration, the
@@ -100,9 +102,11 @@ still require stable board dimensions and exclusive configuration changes.
 | `nodes` | Recursive nodes visited while searching this root move |
 
 The candidate vector is produced by completed single-threaded timed iterations.
-Node counts are a visit proxy, not Monte Carlo visits. Root alpha-beta windows
-can make some values bounds rather than independent exact full-window scores.
-The vector is not a sorted probability distribution.
+Each candidate is searched with an independent full alpha-beta window. During
+these searches, only exact transposition-table entries at the same depth are
+reused. Candidate scores therefore do not depend on bounds or deeper results from
+another root line. Node counts are a visit proxy, not Monte Carlo visits. The
+vector is not a sorted probability distribution.
 
 Fixed-depth search publishes the root score but not a fresh candidate vector.
 The SMP path does not refresh either result field. Search counters reset on
@@ -132,8 +136,9 @@ sole-candidate returns. Periodic events use `search_progress`.
 TT contents and occupancy persist between searches until `clear_tt()` or a
 capacity-changing `set_tt_max_memory()`. The extended engine exposes the latter
 through [INFO max_memory](docsExtendedProtocol.md#info-max_memory).
-Other counters and gauges reset per search. A timed sole-candidate return
-performs no iteration and reports completed depth zero. A fixed-depth search
+Other counters and gauges reset per search. The SMP timed path's sole-candidate
+early return performs no iteration and reports completed depth zero. The
+single-thread timed path searches a sole candidate normally. A fixed-depth search
 reports its configured depth only after all root candidates finish.
 
 Existing fields remain: `elapsed_ms` (minimum 1), `nodes_total`, `nps`,

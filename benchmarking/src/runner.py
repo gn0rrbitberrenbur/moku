@@ -10,12 +10,15 @@ import threading
 import time
 import uuid
 from datetime import datetime, timezone
+from dataclasses import replace
 from pathlib import Path
 from typing import BinaryIO, Callable
 
 from .config import Config, EngineConfig
+from .create_report import check_matplotlib, create_report
 from .openings import Board, Move, SIZE, load_openings, sha256
 from .statistics import summarize
+from .technical_positions import positions
 
 MOVE_PATTERN = re.compile(r"(-?\d+),(-?\d+)")
 
@@ -198,6 +201,7 @@ class Engine:
             raise EngineFailure("protocol_error", f"{self.config.name}: invalid ABOUT: {about}")
         self.send(f"INFO timeout_turn {config.move_time_ms}")
         self.send(f"INFO depth {config.depth}")
+        self.send(f"INFO max_nodes {config.max_nodes}")
         self.send("INFO rule 0")
         self.send("INFO game_type 2")
         deadline = time.monotonic() + timeout / 1000
@@ -432,6 +436,88 @@ def write_json(path: Path, value: object) -> None:
     temporary.replace(path)
 
 
+def run_technical(
+    config: Config, folder: Path, progress: Callable[[str], None],
+    stop_event: threading.Event | None = None,
+) -> None:
+    """Run isolated searches, preserving each transcript and failed observation."""
+    technical_config = replace(
+        config, move_time_ms=config.technical.move_time_ms,
+        depth=config.technical.depth, max_nodes=0,
+    )
+    workloads = positions()
+    output: dict[str, object] = {
+        "schema_version": 1,
+        "settings": {
+            "move_time_ms": technical_config.move_time_ms, "depth": technical_config.depth,
+            "max_nodes": 0, "repetitions": config.technical.repetitions,
+        },
+        "positions": [{"id": name, "description": desc, "moves": moves}
+                      for name, desc, moves in workloads],
+        "observations": [],
+    }
+    observations: list[dict[str, object]] = []
+    output["observations"] = observations
+    write_json(folder / "technical.json", output)
+    sample_id = 0
+    for name, _, moves in workloads:
+        for repetition in range(config.technical.repetitions):
+            order = config.engines if repetition % 2 == 0 else config.engines[::-1]
+            for engine_config in order:
+                check_cancelled(stop_event)
+                sample_id += 1
+                log_path = folder / f"technical-{sample_id:04}.json"
+                log = EventLog(log_path, {
+                    "schema_version": 1, "kind": "technical", "position": name,
+                    "repetition": repetition + 1, "engine": engine_config.name,
+                    "moves": moves,
+                })
+                engines: list[Engine] = []
+                result: dict[str, object] = {"status": "failed"}
+                try:
+                    board = Board()
+                    for move in moves:
+                        board.play(move)
+                    engine = Engine(engine_config, log, stop_event)
+                    engines.append(engine)
+                    engine.initialize(technical_config)
+                    move = engine.move(board, True, technical_config)
+                    try:
+                        board.play(move)
+                    except ValueError as exc:
+                        raise EngineFailure("illegal_move", str(exc)) from exc
+                    result = {"status": "completed", "move": move}
+                except EngineFailure as exc:
+                    result.update(reason=exc.reason, error=str(exc))
+                except (RunCancelled, KeyboardInterrupt):
+                    result.update(status="interrupted")
+                    raise
+                finally:
+                    try:
+                        close_engines(engines)
+                    finally:
+                        log.finish(result)
+
+                data = json.loads(log_path.read_text(encoding="utf-8"))
+                final = [
+                    event["metrics"] for event in data["events"]
+                    if isinstance(event.get("metrics"), dict)
+                    and event["metrics"].get("event") == "search_finished"
+                ]
+                if result["status"] == "completed" and len(final) != 1:
+                    result.update(status="failed", reason="metrics",
+                                  error=f"Expected one final metric snapshot, received {len(final)}")
+                observation: dict[str, object] = {
+                    "position": name, "repetition": repetition + 1,
+                    "engine": engine_config.name, "log": log_path.name, **result,
+                }
+                if result["status"] == "completed":
+                    observation["metrics"] = final[0]
+                observations.append(observation)
+                write_json(folder / "technical.json", output)
+                progress(f"Technical {name} #{repetition + 1} {engine_config.name}: {result['status']}")
+
+
 def report(
     pairs: list[tuple[float, float]], games: list[dict[str, object]],
     config: Config, status: object,
@@ -462,6 +548,7 @@ def run(
     progress_path: Path | None = None, *, stop_event: threading.Event | None = None,
 ) -> Path:
     """Run paired matches; a stop event raises RunCancelled after cleanup and log finalization."""
+    check_matplotlib()
     openings = load_openings(config.openings)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     folder = config.output_dir / f"{stamp}-{uuid.uuid4().hex[:8]}"
@@ -477,6 +564,13 @@ def run(
             "timeout_tolerance_ms": config.timeout_tolerance_ms,
             "startup_timeout_ms": config.startup_timeout_ms,
             "metrics_interval_ms": config.metrics_interval_ms, "depth": config.depth,
+            "max_nodes": config.max_nodes,
+        },
+        "technical_settings": {
+            "move_time_ms": config.technical.move_time_ms,
+            "depth": config.technical.depth,
+            "repetitions": config.technical.repetitions,
+            "max_nodes": 0,
         },
         "engines": [
             {"name": engine.name, "command": engine.command, "cwd": str(engine.cwd),
@@ -521,6 +615,7 @@ def run(
                 break
         else:
             manifest["stop_reason"] = "opening_suite_exhausted"
+        run_technical(config, folder, progress, stop_event)
         manifest["status"] = "completed"
     except (Exception, KeyboardInterrupt) as exc:
         manifest.update(
@@ -534,4 +629,5 @@ def run(
         manifest["finished_utc"] = datetime.now(timezone.utc).isoformat()
         write_json(folder / "manifest.json", manifest)
         write_json(folder / "summary.json", report(pairs, games, config, manifest["status"]))
+    create_report(folder)
     return folder

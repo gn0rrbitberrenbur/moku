@@ -60,6 +60,10 @@ public:
     {
         return nodes_searched.load(std::memory_order_relaxed);
     }
+    int get_completed_depth() const
+    {
+        return depth_completed.load(std::memory_order_relaxed);
+    }
     long long get_tt_hits() const
     {
         return tt_hits.load(std::memory_order_relaxed);
@@ -103,7 +107,7 @@ private:
     TranspositionTable tt;
 
     float minimax(Board& board, int depth, float alpha, float beta, bool is_maximizing,
-                  uint64_t hash);
+                  uint64_t hash, bool exact_score = false);
 
     float last_root_score = 0.0f;
     std::vector<RootCandidate> last_root_candidates;

@@ -7,7 +7,9 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <iostream>
+#include <limits>
 #include <regex>
 #include <sstream>
 #include <stdexcept>
@@ -1542,6 +1544,87 @@ TEST_F(SearchMetricsTest, TimedSerialAndSmpCompletedDepth)
     }
 }
 
+TEST_F(SearchMetricsTest, TimedSerialScoresSingleRootCandidate)
+{
+    Board board;
+    const int winning_move = board.pos(2, 4);
+    for (int col = 0; col < 4; ++col)
+        board.make_move(board.pos(2, col), true);
+    for (int pos = 0; pos < board.squares(); ++pos)
+    {
+        if (pos != winning_move && !board.test_pos(pos))
+            board.make_move(pos, false);
+    }
+
+    const auto black = board.black;
+    const auto white = board.white;
+    MinimaxAgent agent(3);
+
+    EXPECT_EQ(agent.get_best_move_timed(board, true, 60000), winning_move);
+    ASSERT_EQ(agent.get_last_root_candidates().size(), 1u);
+    EXPECT_EQ(agent.get_last_root_candidates()[0].move, winning_move);
+    EXPECT_GT(agent.get_last_root_candidates()[0].score, 90000.0f);
+    EXPECT_GT(agent.get_last_root_score(), 90000.0f);
+    EXPECT_EQ(board.black, black);
+    EXPECT_EQ(board.white, white);
+}
+
+TEST_F(SearchMetricsTest, TimedRootCandidatesHaveIndependentExactScores)
+{
+    Board board;
+    board.make_move(board.pos(2, 2), true);
+    const auto black = board.black;
+    const auto white = board.white;
+    Evaluator evaluator;
+    constexpr int depth = 2;
+    MinimaxAgent agent(depth, 4096);
+
+    for (bool black_to_move : {true, false})
+    {
+        agent.clear_tt();
+        ASSERT_GE(agent.get_best_move_timed(board, black_to_move, 60000), 0);
+        const std::vector<RootCandidate>& candidates = agent.get_last_root_candidates();
+        ASSERT_EQ(candidates.size(), evaluator.get_valid_moves(board).size());
+
+        for (const RootCandidate& candidate : candidates)
+        {
+            Board after_root = board;
+            after_root.make_move(candidate.move, black_to_move);
+            float expected;
+            if (after_root.wins_at(candidate.move, black_to_move))
+            {
+                expected = black_to_move ? 100000.0f : -100000.0f;
+            }
+            else
+            {
+                const bool opponent_is_black = !black_to_move;
+                const float initial =
+                    opponent_is_black ? -std::numeric_limits<float>::infinity()
+                                      : std::numeric_limits<float>::infinity();
+                expected = initial;
+                const std::vector<int> replies = evaluator.get_valid_moves(after_root);
+                for (int reply : replies)
+                {
+                    after_root.make_move(reply, opponent_is_black);
+                    const float score =
+                        after_root.wins_at(reply, opponent_is_black)
+                            ? (opponent_is_black ? 99999.0f : -99999.0f)
+                            : evaluator.evaluate_board(after_root);
+                    after_root.undo_move(reply);
+                    expected = opponent_is_black ? std::max(expected, score)
+                                                 : std::min(expected, score);
+                }
+                if (replies.empty())
+                    expected = 0.0f;
+            }
+            EXPECT_FLOAT_EQ(candidate.score, expected) << "move " << candidate.move;
+        }
+
+        EXPECT_EQ(board.black, black);
+        EXPECT_EQ(board.white, white);
+    }
+}
+
 TEST_F(SearchMetricsTest, EarlyReturnsResetCounters)
 {
     MinimaxAgent agent(2);
@@ -1556,8 +1639,16 @@ TEST_F(SearchMetricsTest, EarlyReturnsResetCounters)
         EXPECT_EQ(agent.get_best_move_timed_smp(empty, true, 100), empty.pos(2, 2));
         std::string json = final_metrics();
         check_metrics(json, agent, 1);
-        EXPECT_EQ(metric(json, "tt_probes_total"), 0);
-        EXPECT_EQ(metric(json, "depth_completed"), 0);
+        if (cores == 1)
+        {
+            EXPECT_GT(metric(json, "tt_probes_total"), 0);
+            EXPECT_EQ(metric(json, "depth_completed"), agent.get_max_depth());
+        }
+        else
+        {
+            EXPECT_EQ(metric(json, "tt_probes_total"), 0);
+            EXPECT_EQ(metric(json, "depth_completed"), 0);
+        }
 
         Board full;
         for (int i = 0; i < g_config.squares(); ++i)

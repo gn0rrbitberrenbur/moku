@@ -7,16 +7,24 @@ timeout_tolerance_ms = 1000
 startup_timeout_ms = 10000
 metrics_interval_ms = 100
 depth = 12
+# Maximum recursive nodes per search; 0 disables the limit.
+max_nodes = 1000000
+
+[technical]
+# Each engine searches each position this many times in a fresh process.
+move_time_ms = 1000
+depth = 12
+repetitions = 5
 
 # Reference first, candidate second. No shell is used.
 [[engines]]
 name = "reference"
-command = ['']
+command = ['C:\python\moku-main\moku-main\build\engine\moku\extended_moku.exe']
 cwd = ".."
 
 [[engines]]
 name = "candidate"
-command = ['']
+command = ['C:\python\moku-main\moku-main\build\engine\moku\extended_moku.exe']
 cwd = ".."
 
 [sprt]
