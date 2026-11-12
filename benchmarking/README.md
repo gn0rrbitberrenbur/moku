@@ -10,9 +10,11 @@ Only the engine whose turn it is receives a search command.
 One game runs at a time.
 
 ## Running a match
-Install the benchmark's Python dependencies and run from the repository root:
+Install the benchmarks Python dependencies and run from the repository root:
 
 ```text
+python -m venv benchmarking\.venv
+.\benchmarking\.venv\Scripts\Activate
 python -m pip install -r benchmarking/requirements.txt
 python -m benchmarking.src benchmarking/example.toml
 ```

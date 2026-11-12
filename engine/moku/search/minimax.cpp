@@ -43,8 +43,7 @@ bool MinimaxAgent::count_node()
     {
         if (search_aborted.load(std::memory_order_relaxed))
             return false;
-        if (nodes_searched.compare_exchange_weak(current, current + 1,
-                                                 std::memory_order_relaxed))
+        if (nodes_searched.compare_exchange_weak(current, current + 1, std::memory_order_relaxed))
         {
             return true;
         }
@@ -140,8 +139,8 @@ int MinimaxAgent::get_best_move_timed(Board& board, bool is_black, int time_limi
             float score;
             if (board.wins_at(move, is_black))
             {
-                score =
-                    is_black ? 100000.0f - (max_depth - depth) : -100000.0f + (max_depth - depth);
+                score = is_black ? 100000.0f - static_cast<float>(max_depth - depth)
+                                 : -100000.0f + static_cast<float>(max_depth - depth);
             }
             else
             {
@@ -355,7 +354,7 @@ float MinimaxAgent::minimax(Board& board, int depth, float alpha, float beta, bo
             float eval;
             if (board.wins_at(move, true))
             {
-                eval = 100000.0f - (max_depth - depth);
+                eval = 100000.0f - static_cast<float>(max_depth - depth);
             }
             else
             {
@@ -400,7 +399,7 @@ float MinimaxAgent::minimax(Board& board, int depth, float alpha, float beta, bo
             float eval;
             if (board.wins_at(move, false))
             {
-                eval = -100000.0f + (max_depth - depth);
+                eval = -100000.0f + static_cast<float>(max_depth - depth);
             }
             else
             {
@@ -608,8 +607,8 @@ int MinimaxAgent::get_best_move_timed_smp(Board& board, bool is_black, int time_
                 float score;
                 if (local.wins_at(move, is_black))
                 {
-                    score = is_black ? 100000.0f - (max_depth - depth)
-                                     : -100000.0f + (max_depth - depth);
+                    score = is_black ? 100000.0f - static_cast<float>(max_depth - depth)
+                                     : -100000.0f + static_cast<float>(max_depth - depth);
                 }
                 else
                 {
@@ -745,7 +744,8 @@ void MinimaxAgent::report_progress(bool finished)
     const auto nodes = nodes_searched.load(std::memory_order_relaxed);
     const int move = progress_best_move.load(std::memory_order_relaxed);
 
-    std::cerr << "[METRICS] {\"event\":\"" << (finished ? "search_finished" : "search_progress") << "\""
+    std::cerr << "[METRICS] {\"event\":\"" << (finished ? "search_finished" : "search_progress")
+              << "\""
               << ",\"elapsed_ms\":" << elapsed_ms << ",\"nodes_total\":" << nodes
               << ",\"tt_capacity_entries\":" << tt.size()
               << ",\"tt_allocated_bytes\":" << tt.allocated_bytes()

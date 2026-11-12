@@ -2,6 +2,7 @@
 
 #include "config.hpp"
 
+#include <cctype>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -44,7 +45,7 @@ void Engine::process_command(const std::string& line)
     // convert to uppercase
     std::string cmd_upper = cmd;
     for (auto& c : cmd_upper)
-        c = toupper(c);
+        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
 
     if (cmd_upper == "START")
     {

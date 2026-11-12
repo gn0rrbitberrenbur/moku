@@ -32,7 +32,7 @@ protected:
 
 TEST_F(MokuContract, MaxSquaresMatchesNineteenSquared)
 {
-    EXPECT_EQ(MAX_SQUARES, 19 * 19);
+    EXPECT_EQ(MAX_SQUARES, 20 * 20);
 }
 
 TEST_F(MokuContract, ConfigSquaresFollowsBoardSize)

@@ -22,9 +22,8 @@ the ownership list below are relative to the repository root.
 - `engine/moku/engine/gomocup_protocol/` and `engine/moku/engine/extended_protocol/`
   each define an `Engine` for a separate executable. Keep translation-unit sets separate.
 - `engine/moku/benchmark/benchmark.*` owns workloads and printed benchmark results.
-- `engine/moku/tests/tests.cpp` covers core modules and standard engine behavior;
-  `engine/moku/tests/gomocup_protocol_test.cpp` and
-  `engine/moku/tests/extended_protocol_test.cpp` cover stream-based protocol dispatch.
+- `engine/moku/tests/engine_tests/` contains core module and search-metrics tests;
+  `engine/moku/tests/protocol_tests/` contains stream-based protocol dispatch tests.
 - `engine/docs/docsOverview.md` links the module references. Read the corresponding
   game, tools, evaluation, search, TT, protocol, configuration, or benchmark reference.
 

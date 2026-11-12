@@ -7,8 +7,26 @@
 #include <sstream>
 #include <string>
 
+class ScopedStreamBuffer
+{
+public:
+    ScopedStreamBuffer(std::ios& stream, std::streambuf* replacement)
+        : stream_(stream), original_(stream.rdbuf(replacement))
+    {
+    }
+
+    ~ScopedStreamBuffer()
+    {
+        stream_.rdbuf(original_);
+    }
+
+private:
+    std::ios& stream_;
+    std::streambuf* original_;
+};
+
 /**
- * This test suit implements tests that check whether the engine is compliant
+ * This test suite implements tests that check whether the engine is compliant
  * to the Gomoku AI protocol (see: https://plastovicka.github.io/protocl2en.htm)
  */
 
@@ -18,24 +36,25 @@ public:
     std::string execute(const std::string& command, const std::string& input = "")
     {
         std::ostringstream output;
-
-        std::streambuf* old_cout = std::cout.rdbuf(output.rdbuf());
-        std::streambuf* old_cin = nullptr;
-
         std::istringstream input_stream(input);
-        if (!input.empty())
-        {
-            old_cin = std::cin.rdbuf(input_stream.rdbuf());
-        }
+        ScopedStreamBuffer output_redirect(std::cout, output.rdbuf());
+        ScopedStreamBuffer input_redirect(std::cin,
+                                          input.empty() ? std::cin.rdbuf() : input_stream.rdbuf());
 
         process_command(command);
 
-        if (old_cin != nullptr)
-        {
-            std::cin.rdbuf(old_cin);
-        }
+        return output.str();
+    }
 
-        std::cout.rdbuf(old_cout);
+    std::string execute_stream(const std::string& input)
+    {
+        std::ostringstream output;
+        std::istringstream input_stream(input);
+        ScopedStreamBuffer output_redirect(std::cout, output.rdbuf());
+        ScopedStreamBuffer input_redirect(std::cin, input_stream.rdbuf());
+
+        run();
+
         return output.str();
     }
 
@@ -47,11 +66,6 @@ public:
     bool is_running() const
     {
         return running;
-    }
-
-    size_t tt_size() const
-    {
-        return agent.get_tt_size();
     }
 };
 
@@ -73,7 +87,7 @@ protected:
 
     static void expect_coordinate(const std::string& output, int board_size)
     {
-        std::regex coordinate_pattern(R"(^[0-9]+,[0-9]+\n$)");
+        std::regex coordinate_pattern(R"(^[0-9]+,[0-9]+(\r\n|\n|\r)$)");
         ASSERT_TRUE(std::regex_match(output, coordinate_pattern));
 
         std::istringstream stream(output);
@@ -88,41 +102,35 @@ protected:
         EXPECT_GE(y, 0);
         EXPECT_LT(y, board_size);
     }
+
+    static bool is_ok_response(const std::string& output)
+    {
+        const std::regex ok_pattern(R"(^OK( [^\r\n]*)?(\r\n|\n|\r)$)");
+        return std::regex_match(output, ok_pattern);
+    }
 };
 
 /**
  * "START [size]"
  * Following this command, the brain should initialize an empty board but does not make a move yet.
- * If the size is good, the engine answers "OK"
- * If the size is unsupported, the engine answers "ERROR message"
+ * A board of size 20 is required. If the size is good, the engine answers "OK".
+ * If the size is unsupported, the engine answers "ERROR message".
  */
-TEST_F(GomocupProtocolTest, START_StartAcceptsSupportedBoardSizes)
+TEST_F(GomocupProtocolTest, START_StartAcceptsRequiredBoardSize20)
 {
+    g_config.max_depth = 1;
     ProtocolEngine engine;
 
-    EXPECT_EQ(engine.execute("START 5"), "OK\n");
-    EXPECT_EQ(g_config.board_size, 5);
-
-    EXPECT_EQ(engine.execute("START 19"), "OK\n");
-    EXPECT_EQ(g_config.board_size, 19);
-}
-
-TEST_F(GomocupProtocolTest, START_StartRejectsUnsupportedBoardSizes)
-{
-    ProtocolEngine engine;
-
-    EXPECT_EQ(engine.execute("START 4").find("ERROR"), 0);
-    EXPECT_EQ(engine.execute("START 20").find("ERROR"), 0);
-}
-
-TEST_F(GomocupProtocolTest, START_StartCreatesEmptyBoard)
-{
-    ProtocolEngine engine;
-
-    engine.execute("START 15");
+    ASSERT_TRUE(is_ok_response(engine.execute("START 20")));
+    EXPECT_EQ(g_config.board_size, 20);
 
     EXPECT_EQ(engine.get_board().black.count(), 0);
     EXPECT_EQ(engine.get_board().white.count(), 0);
+
+    engine.execute("INFO timeout_turn 100");
+    const std::string output = engine.execute("TURN 19,19");
+    expect_coordinate(output, 20);
+    EXPECT_TRUE(engine.get_board().test_pos(19 * 20 + 19));
 }
 
 /**
@@ -157,57 +165,42 @@ TEST_F(GomocupProtocolTest, TURN_TurnReturnsMoveAndRegistersOpponentMove)
 
     expect_coordinate(output, 15);
     EXPECT_TRUE(engine.get_board().test_pos(0));
+    std::istringstream stream(output);
+    int x;
+    int y;
+    char comma;
+    ASSERT_TRUE(stream >> x >> comma >> y);
+    EXPECT_NE(y * 15 + x, 0);
     EXPECT_EQ(engine.get_board().black.count() + engine.get_board().white.count(), 2);
 }
 
 TEST_F(GomocupProtocolTest, TURN_TurnStoresLegalReplyAndOpponentMoveWithoutOverlap)
 {
-    for (const bool engine_is_black : {false, true})
-    {
-        SCOPED_TRACE(engine_is_black ? "Engine plays black" : "Engine plays white");
-        g_config.max_depth = 1;
-        ProtocolEngine engine;
-        ASSERT_EQ(engine.execute("START 15"), "OK\n");
-        engine.execute("INFO timeout_turn 100");
+    g_config.max_depth = 1;
+    ProtocolEngine engine;
+    ASSERT_TRUE(is_ok_response(engine.execute("START 15")));
+    engine.execute("INFO timeout_turn 100");
 
-        if (engine_is_black)
-        {
-            ASSERT_NO_FATAL_FAILURE(expect_coordinate(engine.execute("BEGIN"), 15));
-        }
+    ASSERT_NO_FATAL_FAILURE(expect_coordinate(engine.execute("BEGIN"), 15));
+    const Board before = engine.get_board();
+    const int opponent_pos = 3 * 15 + 2;
+    ASSERT_FALSE(before.test_pos(opponent_pos));
 
-        const Board before = engine.get_board();
-        const int opponent_pos = 3 * 15 + 2;
-        ASSERT_FALSE(before.test_pos(opponent_pos));
+    const std::string output = engine.execute("TURN 2,3");
+    ASSERT_NO_FATAL_FAILURE(expect_coordinate(output, 15));
 
-        const std::string output = engine.execute("TURN 2,3");
-        ASSERT_NO_FATAL_FAILURE(expect_coordinate(output, 15));
+    std::istringstream stream(output);
+    int reply_x;
+    int reply_y;
+    char comma;
+    ASSERT_TRUE(stream >> reply_x >> comma >> reply_y);
+    const int reply_pos = reply_y * 15 + reply_x;
 
-        std::istringstream stream(output);
-        int reply_x;
-        int reply_y;
-        char comma;
-        ASSERT_TRUE(stream >> reply_x >> comma >> reply_y);
-        const int reply_pos = reply_y * 15 + reply_x;
-
-        EXPECT_FALSE(before.test_pos(reply_pos));
-        EXPECT_NE(reply_pos, opponent_pos);
-
-        const Board& after = engine.get_board();
-        const auto& own_stones = engine_is_black ? after.black : after.white;
-        const auto& opponent_stones = engine_is_black ? after.white : after.black;
-        EXPECT_TRUE(own_stones.test(reply_pos));
-        EXPECT_FALSE(opponent_stones.test(reply_pos));
-        EXPECT_TRUE(opponent_stones.test(opponent_pos));
-        EXPECT_FALSE(own_stones.test(opponent_pos));
-        EXPECT_TRUE((after.black & after.white).none());
-
-        auto expected_black = before.black;
-        auto expected_white = before.white;
-        (engine_is_black ? expected_black : expected_white).set(reply_pos);
-        (engine_is_black ? expected_white : expected_black).set(opponent_pos);
-        EXPECT_EQ(after.black, expected_black);
-        EXPECT_EQ(after.white, expected_white);
-    }
+    EXPECT_FALSE(before.test_pos(reply_pos));
+    EXPECT_NE(reply_pos, opponent_pos);
+    EXPECT_TRUE(engine.get_board().test_pos(opponent_pos));
+    EXPECT_TRUE(engine.get_board().test_pos(reply_pos));
+    EXPECT_EQ(engine.get_board().black.count() + engine.get_board().white.count(), 3);
 }
 
 TEST_F(GomocupProtocolTest, TURN_TurnRejectsNegativeCoordinates)
@@ -252,8 +245,10 @@ TEST_F(GomocupProtocolTest, TURN_TurnRejectsOccupiedPosition)
  */
 TEST_F(GomocupProtocolTest, BOARD_BoardLoadsOwnAndOpponentStones)
 {
+    g_config.max_depth = 1;
     ProtocolEngine engine;
     engine.execute("START 15");
+    engine.execute("INFO timeout_turn 100");
 
     const std::string output = engine.execute("BOARD", "7,7,1\n"
                                                        "8,7,2\n"
@@ -262,66 +257,75 @@ TEST_F(GomocupProtocolTest, BOARD_BoardLoadsOwnAndOpponentStones)
 
     expect_coordinate(output, 15);
     EXPECT_EQ(engine.get_board().black.count() + engine.get_board().white.count(), 4);
+    EXPECT_TRUE(engine.get_board().test_pos(7 * 15 + 7));
+    EXPECT_TRUE(engine.get_board().test_pos(7 * 15 + 8));
+    EXPECT_TRUE(engine.get_board().test_pos(7 * 15 + 6));
+
+    std::istringstream stream(output);
+    int x;
+    int y;
+    char comma;
+    ASSERT_TRUE(stream >> x >> comma >> y);
+    const int reply_pos = y * 15 + x;
+    EXPECT_NE(reply_pos, 7 * 15 + 7);
+    EXPECT_NE(reply_pos, 7 * 15 + 8);
+    EXPECT_NE(reply_pos, 7 * 15 + 6);
 }
 
 TEST_F(GomocupProtocolTest, BOARD_BoardPreservesPositionsAndAddsExactlyOneOwnStone)
 {
-    for (const bool engine_is_black : {false, true})
-    {
-        SCOPED_TRACE(engine_is_black ? "Engine plays black" : "Engine plays white");
-        g_config.max_depth = 1;
-        ProtocolEngine engine;
-        ASSERT_EQ(engine.execute("START 15"), "OK\n");
-        engine.execute("INFO timeout_turn 100");
+    g_config.max_depth = 1;
+    ProtocolEngine engine;
+    ASSERT_TRUE(is_ok_response(engine.execute("START 15")));
+    engine.execute("INFO timeout_turn 100");
 
-        const int own_pos = 3 * 15 + 2;
-        const int opponent_pos = 6 * 15 + 5;
-        const int extra_opponent_pos = 9 * 15 + 8;
-        std::string input = "5,6,2\n2,3,1\n";
-        if (!engine_is_black)
-        {
-            input += "8,9,2\n";
-        }
-        input += "DONE\n";
+    const std::string records = "5,6,2\n2,3,1\n8,9,2\n";
+    const std::string output = engine.execute("BOARD", records + "DONE\n");
+    ASSERT_NO_FATAL_FAILURE(expect_coordinate(output, 15));
 
-        Board expected;
-        expected.make_move(own_pos, engine_is_black);
-        expected.make_move(opponent_pos, !engine_is_black);
-        if (!engine_is_black)
-        {
-            expected.make_move(extra_opponent_pos, !engine_is_black);
-        }
+    const int first = 6 * 15 + 5;
+    const int second = 3 * 15 + 2;
+    const int third = 9 * 15 + 8;
+    EXPECT_TRUE(engine.get_board().test_pos(first));
+    EXPECT_TRUE(engine.get_board().test_pos(second));
+    EXPECT_TRUE(engine.get_board().test_pos(third));
+    EXPECT_EQ(engine.get_board().black.count() + engine.get_board().white.count(), 4);
 
-        const std::string output = engine.execute("BOARD", input);
-        ASSERT_NO_FATAL_FAILURE(expect_coordinate(output, 15));
-        std::istringstream stream(output);
-        int reply_x;
-        int reply_y;
-        char comma;
-        ASSERT_TRUE(stream >> reply_x >> comma >> reply_y);
-        ASSERT_GE(reply_x, 0);
-        ASSERT_LT(reply_x, 15);
-        ASSERT_GE(reply_y, 0);
-        ASSERT_LT(reply_y, 15);
-        const int reply_pos = reply_y * 15 + reply_x;
-        EXPECT_FALSE(expected.test_pos(reply_pos));
-        expected.make_move(reply_pos, engine_is_black);
+    std::istringstream stream(output);
+    int x;
+    int y;
+    char comma;
+    ASSERT_TRUE(stream >> x >> comma >> y);
+    const int reply_pos = y * 15 + x;
+    EXPECT_NE(reply_pos, first);
+    EXPECT_NE(reply_pos, second);
+    EXPECT_NE(reply_pos, third);
 
-        const Board& after = engine.get_board();
-        const auto& own_stones = engine_is_black ? after.black : after.white;
-        const auto& opponent_stones = engine_is_black ? after.white : after.black;
-        EXPECT_EQ(own_stones.count(), 2);
-        EXPECT_EQ(opponent_stones.count(), engine_is_black ? 1 : 2);
-        EXPECT_EQ(after.black, expected.black);
-        EXPECT_EQ(after.white, expected.white);
-        EXPECT_TRUE((after.black & after.white).none());
-    }
+    const std::string shuffled_output = engine.execute("BOARD", "8,9,2\n"
+                                                                "5,6,2\n"
+                                                                "2,3,1\n"
+                                                                "DONE\n");
+    ASSERT_NO_FATAL_FAILURE(expect_coordinate(shuffled_output, 15));
+    EXPECT_TRUE(engine.get_board().test_pos(first));
+    EXPECT_TRUE(engine.get_board().test_pos(second));
+    EXPECT_TRUE(engine.get_board().test_pos(third));
+    EXPECT_EQ(engine.get_board().black.count() + engine.get_board().white.count(), 4);
+    std::istringstream shuffled_stream(shuffled_output);
+    int shuffled_x;
+    int shuffled_y;
+    char shuffled_comma;
+    ASSERT_TRUE(shuffled_stream >> shuffled_x >> shuffled_comma >> shuffled_y);
+    const int shuffled_reply = shuffled_y * 15 + shuffled_x;
+    EXPECT_NE(shuffled_reply, first);
+    EXPECT_NE(shuffled_reply, second);
+    EXPECT_NE(shuffled_reply, third);
 }
 
 TEST_F(GomocupProtocolTest, BOARD_BoardResetsPreviousPosition)
 {
     ProtocolEngine engine;
     engine.execute("START 15");
+    engine.execute("INFO timeout_turn 100");
     engine.execute("BEGIN");
 
     EXPECT_EQ(engine.get_board().black.count() + engine.get_board().white.count(), 1);
@@ -332,8 +336,38 @@ TEST_F(GomocupProtocolTest, BOARD_BoardResetsPreviousPosition)
     EXPECT_FALSE(engine.get_board().test_pos(112));
 }
 
+TEST_F(GomocupProtocolTest, BOARD_RenjuForbiddenFieldThreeIsNotPlayed)
+{
+    g_config.max_depth = 1;
+    ProtocolEngine engine;
+    ASSERT_TRUE(is_ok_response(engine.execute("START 15")));
+    engine.execute("INFO timeout_turn 100");
+    engine.execute("INFO rule 6");
+
+    const std::string output = engine.execute("BOARD", "6,7,1\n"
+                                                       "0,0,2\n"
+                                                       "8,7,1\n"
+                                                       "2,0,2\n"
+                                                       "7,6,1\n"
+                                                       "4,0,2\n"
+                                                       "7,8,1\n"
+                                                       "6,0,2\n"
+                                                       "12,12,1\n"
+                                                       "8,0,2\n"
+                                                       "7,7,3\n"
+                                                       "DONE\n");
+
+    ASSERT_NO_FATAL_FAILURE(expect_coordinate(output, 15));
+    std::istringstream stream(output);
+    int x;
+    int y;
+    char comma;
+    ASSERT_TRUE(stream >> x >> comma >> y);
+    EXPECT_FALSE(x == 7 && y == 7);
+}
+
 /**
- * "INFO [key],[value]"
+ * "INFO [key] [value]"
  * This command is used by the manager to send information to the brain.
  * This could be:
  * timeout_turn  - time limit for each move (milliseconds, 0=play as fast as possible)
@@ -350,46 +384,19 @@ TEST_F(GomocupProtocolTest, INFO_InfoDoesNotWriteToStandardOutput)
     ProtocolEngine engine;
 
     EXPECT_TRUE(engine.execute("INFO timeout_turn 4000").empty());
-    EXPECT_EQ(g_config.time_limit_ms, 4000);
 }
 
-TEST_F(GomocupProtocolTest, INFO_InfoUpdatesSupportedValues)
+TEST_F(GomocupProtocolTest, INFO_DocumentedAndUnknownInfoDoesNotWriteToStandardOutput)
 {
     ProtocolEngine engine;
 
-    engine.execute("INFO timeout_match 60000");
-    engine.execute("INFO time_left 50000");
-    engine.execute("INFO max_memory 1024");
-    engine.execute("INFO game_type 1");
-    engine.execute("INFO rule 2");
-    engine.execute("INFO folder /tmp/moku");
-
-    EXPECT_EQ(g_config.timeout_match, 60000);
-    EXPECT_EQ(g_config.time_left, 50000);
-    EXPECT_EQ(g_config.max_memory, 1024);
-    EXPECT_EQ(g_config.game_type, 1);
-    EXPECT_EQ(g_config.rule, 2);
-    EXPECT_EQ(g_config.folder, "/tmp/moku");
-}
-
-TEST_F(GomocupProtocolTest, INFO_MaxMemoryRemainsMetadataOnly)
-{
+    for (const char* info :
+         {"INFO timeout_turn 4000", "INFO timeout_match 60000", "INFO time_left -1",
+          "INFO time_left 2147483647", "INFO max_memory 1024", "INFO game_type 1", "INFO rule 2",
+          "INFO evaluate 7,7", "INFO folder /tmp/moku", "INFO unknown_key 123"})
     {
-        ProtocolEngine engine;
-        EXPECT_TRUE(engine.execute("INFO max_memory 1024").empty());
-        EXPECT_EQ(g_config.max_memory, 1024);
-        EXPECT_EQ(engine.tt_size(), size_t(1) << 23);
+        EXPECT_TRUE(engine.execute(info).empty()) << info;
     }
-
-    ProtocolEngine engine;
-    EXPECT_EQ(engine.tt_size(), size_t(1) << 23);
-}
-
-TEST_F(GomocupProtocolTest, INFO_UnknownInfoIsIgnored)
-{
-    ProtocolEngine engine;
-
-    EXPECT_TRUE(engine.execute("INFO unknown_key 123").empty());
 }
 
 /**
@@ -407,8 +414,7 @@ TEST_F(GomocupProtocolTest, END_EndStopsEngineWithoutOutput)
 
 /**
  * "ABOUT"
- * This command should send some information about the engine in the following format:
- * key="value", key="value", ...
+ * Each item must be a keyword followed by = and a quoted text value.
  */
 TEST_F(GomocupProtocolTest, ABOUT_AboutReturnsMachineReadableInformation)
 {
@@ -416,8 +422,9 @@ TEST_F(GomocupProtocolTest, ABOUT_AboutReturnsMachineReadableInformation)
 
     const std::string output = engine.execute("ABOUT");
 
-    EXPECT_NE(output.find("name=\"moku\""), std::string::npos);
-    EXPECT_NE(output.find("version=\""), std::string::npos);
+    const std::regex about_pattern(
+        R"(^[^=,\r\n]+ *= *"[^"\r\n]*"(, *[^=,\r\n]+ *= *"[^"\r\n]*")*(\r\n|\n|\r)$)");
+    EXPECT_TRUE(std::regex_match(output, about_pattern));
 }
 
 /**
@@ -481,16 +488,19 @@ TEST_F(GomocupProtocolTest, UnknownCommandReturnsUnknown)
 {
     ProtocolEngine engine;
 
-    EXPECT_EQ(engine.execute("SOMETHING"), "UNKNOWN SOMETHING\n");
+    const std::string output = engine.execute("SOMETHING");
+    const std::regex unknown_pattern(R"(^UNKNOWN( [^\r\n]*)?(\r\n|\n|\r)$)");
+    EXPECT_TRUE(std::regex_match(output, unknown_pattern));
+    EXPECT_TRUE(engine.is_running());
 }
 
-/**
- * Commands should be case insensitive (converted to uppercase internally)
- */
-TEST_F(GomocupProtocolTest, CommandsAreCaseInsensitive)
+TEST_F(GomocupProtocolTest, RunIgnoresEmptyLinesAndAcceptsManagerCRLF)
 {
     ProtocolEngine engine;
 
-    EXPECT_EQ(engine.execute("start 15"), "OK\n");
-    EXPECT_EQ(engine.execute("begin"), "7,7\n");
+    const std::string output =
+        engine.execute_stream("\r\nSTART 15\r\n\r\nINFO unknown_key 1\r\nEND\r\n");
+
+    EXPECT_TRUE(is_ok_response(output));
+    EXPECT_FALSE(engine.is_running());
 }

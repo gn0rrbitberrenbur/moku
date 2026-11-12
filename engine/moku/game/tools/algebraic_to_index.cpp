@@ -21,7 +21,7 @@ int algebraic_to_index(const std::string& input, int size)
     if (size <= 0)
         size = g_config.board_size;
 
-    char col_char = std::toupper(input[0]);
+    char col_char = static_cast<char>(std::toupper(static_cast<unsigned char>(input[0])));
     int col = col_char - 'A';
 
     int row;

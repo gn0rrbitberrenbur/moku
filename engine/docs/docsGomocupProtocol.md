@@ -69,10 +69,8 @@ Engine:  OK
 ```
 
 **moku:** If no readable size is provided, the current default is 15. The handler
-accepts values from 5 to 20, but the board representation only has capacity for
-19x19 squares. Therefore, use **5 through 19 only**. An `OK` response to `START 20`
-does not currently mean that moku can safely handle a 20x20 board.
-The 20x20 support required by the reference is therefore not satisfied.
+accepts values from 5 through 19. The reference requires support for size 20, so
+the current size limit does not satisfy the protocol.
 
 ### BEGIN
 Requests the first move on an empty board. The engine records its move and

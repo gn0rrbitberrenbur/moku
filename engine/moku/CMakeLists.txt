@@ -75,17 +75,23 @@ endif()
 if(MOKU_BUILD_TESTS)
     include(GoogleTest)
 
-    add_executable(moku_tests tests/tests.cpp)
+    add_executable(moku_tests
+        tests/engine_tests/tests_algebraic_conversion.cpp
+        tests/engine_tests/tests_board.cpp
+        tests/engine_tests/tests_evaluator.cpp
+        tests/engine_tests/tests_search_metrics.cpp
+        tests/engine_tests/tests_transposition_table.cpp
+    )
     target_link_libraries(moku_tests PRIVATE moku_gomocup_engine GTest::gtest_main)
     moku_enable_warnings(moku_tests)
     gtest_discover_tests(moku_tests DISCOVERY_TIMEOUT 30)
 
-    add_executable(gomocup_protocol_tests tests/gomocup_protocol_test.cpp)
+    add_executable(gomocup_protocol_tests tests/protocol_tests/gomocup_protocol_test.cpp)
     target_link_libraries(gomocup_protocol_tests PRIVATE moku_gomocup_engine GTest::gtest_main)
     moku_enable_warnings(gomocup_protocol_tests)
     gtest_discover_tests(gomocup_protocol_tests DISCOVERY_TIMEOUT 30)
 
-    add_executable(extended_protocol_tests tests/extended_protocol_test.cpp)
+    add_executable(extended_protocol_tests tests/protocol_tests/extended_protocol_test.cpp)
     target_link_libraries(extended_protocol_tests PRIVATE moku_extended_engine GTest::gtest_main)
     moku_enable_warnings(extended_protocol_tests)
     gtest_discover_tests(extended_protocol_tests DISCOVERY_TIMEOUT 30)

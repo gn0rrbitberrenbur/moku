@@ -3,6 +3,7 @@
 #include "../../benchmark/benchmark.hpp"
 #include "config.hpp"
 
+#include <cctype>
 #include <iostream>
 #include <new>
 #include <sstream>
@@ -50,7 +51,7 @@ void Engine::process_command(const std::string& line)
     // convert to uppercase
     std::string cmd_upper = cmd;
     for (auto& c : cmd_upper)
-        c = toupper(c);
+        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
 
     if (cmd_upper == "START")
     {
@@ -476,7 +477,7 @@ void Engine::cmd_info(std::istringstream& iss)
     }
     else if (key == "max_nodes")
     {
-        long long max_nodes;
+        int max_nodes;
         if (iss >> max_nodes && max_nodes >= 0)
         {
             iss >> std::ws;

@@ -7,7 +7,7 @@ executables and registers their individual cases with CTest through
 | Target | Source | Main coverage |
 | --- | --- | --- |
 | `moku_tests` | `tests/tests.cpp` | Conversion, board, evaluation, Gomocup engine, transposition table, and search metrics |
-| `gomocup_protocol_tests` | `tests/gomocup_protocol_test.cpp` | Focused Gomocup command behavior and response formatting |
+| `gomocup_protocol_tests` | `tests/gomocup_protocol_test.cpp` | Gomocup command responses, required board-size support, BOARD records, INFO silence, ABOUT formatting, and input line handling |
 | `extended_protocol_tests` | `tests/extended_protocol_test.cpp` | Extended INFO node and TT memory limits, search paths, metrics, and help |
 
 Core suite names include `AlgebraicConversion`, `BoardTest`, `EvaluatorTest`,
@@ -21,7 +21,7 @@ per-search counter resets, completed depths, live worker gauges, and final
 debug snapshots for fixed-depth, serial timed, and SMP search.
 Memory-budget checks cover rounding, minimum capacity, shrinking and restoring
 capacity, cache invalidation, stable Zobrist keys, small-table collision locking,
-and metadata-only `max_memory` behavior in the standard Gomocup engine.
+and extended-protocol `max_memory` behavior.
 
 ## 2. Configuration and Build
 From the repository root, in PowerShell:
@@ -67,18 +67,20 @@ needed, stdin to a supplied multiline input. It invokes the handler directly
 rather than starting a child process.
 
 The fixture resets selected global settings before each case. Its coordinate
-helper checks the complete `X,Y` output shape and both coordinate bounds.
-The TURN state-consistency test covers both engine colors: the reply square was
-previously empty and differs from the opponent's move, both new stones have the
-correct colors, existing stones remain unchanged, and the color bitsets do not overlap.
-These tests cover handler behavior but are not a complete external
-pipe-integration or tournament-compliance test.
+helper checks the `X,Y` response shape, line ending, and coordinate bounds.
+Protocol checks include the required 20x20 board size, legal replies after
+`TURN` and `BOARD`, field 3 handling, no stdout response to `INFO`, machine-readable
+`ABOUT` output, ignored empty input lines, and CRLF command input. Optional
+commands are tested only where their behavior is defined by the reference.
+These tests dispatch through the engine in-process; they are not a complete
+child-process pipe or tournament-compliance test.
 
 ## 5. Adding and Interpreting Tests
 - Add cases to the appropriate existing source and suite.
 - Configure global dimensions before constructing agents or tables.
 - Save and restore shared settings and redirected streams when a test changes them.
-- Use supported board sizes and small search budgets for focused checks.
+- Use board size 20 for specification conformance and small search budgets for
+  focused checks.
 - Check actual state and response content, not just whether a call returned.
 
 ## 6. Implementation Locations

@@ -167,8 +167,9 @@ int run_benchmark(int depth, int time_ms, uint64_t max_memory_bytes)
     double total_time = 0;
     for (auto& r : results)
     {
-        double nps = r.time_s > 0 ? r.nodes / r.time_s : 0;
-        double rate = r.nodes > 0 ? (double)r.tt_hits / r.nodes : 0;
+        double nps = r.time_s > 0 ? static_cast<double>(r.nodes) / r.time_s : 0.0;
+        double rate =
+            r.nodes > 0 ? static_cast<double>(r.tt_hits) / static_cast<double>(r.nodes) : 0.0;
         total_nodes += r.nodes;
         total_time += r.time_s;
         std::cout << std::left << std::setw(16) << r.name << std::setw(8) << r.reached_depth
@@ -183,7 +184,10 @@ int run_benchmark(int depth, int time_ms, uint64_t max_memory_bytes)
               << " Nodes searched: " << total_nodes << "\n"
               << " Time taken: " << std::fixed << std::setprecision(3) << total_time << "s" << "\n"
               << " Average Nodes per second: "
-              << (long long)(total_time > 0 ? total_nodes / total_time : 0) << "\n"
+              << static_cast<long long>(total_time > 0
+                                            ? static_cast<double>(total_nodes) / total_time
+                                            : 0.0)
+              << "\n"
               << "\n";
     return 0;
 }

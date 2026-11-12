@@ -5,7 +5,7 @@
 #include <iostream>
 
 // max board size, compile time constant for bitset size
-constexpr int MAX_SIZE = 19;
+constexpr int MAX_SIZE = 20;
 constexpr int MAX_SQUARES = MAX_SIZE * MAX_SIZE; // 361
 
 class Board

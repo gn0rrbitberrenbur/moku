@@ -135,9 +135,9 @@ bool TranspositionTable::probe(uint64_t hash, TTEntry& entry, int ply) const
         return false;
     entry = slot;
     if (entry.score >= MATE)
-        entry.score -= ply;
+        entry.score -= static_cast<float>(ply);
     else if (entry.score <= -MATE)
-        entry.score += ply;
+        entry.score += static_cast<float>(ply);
     return true;
 }
 
@@ -156,9 +156,9 @@ void TranspositionTable::store(uint64_t hash, float score, int depth, int flag, 
                                int ply)
 {
     if (score >= MATE)
-        score += ply;
+        score += static_cast<float>(ply);
     else if (score <= -MATE)
-        score -= ply;
+        score -= static_cast<float>(ply);
     const size_t index = hash & tt_mask;
     std::lock_guard<std::mutex> lock(slot_mutexes[index & (LOCK_COUNT - 1)]);
     TTEntry& slot = table[index];
